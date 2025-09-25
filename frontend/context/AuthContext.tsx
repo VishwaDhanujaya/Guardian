@@ -6,18 +6,13 @@ import {
   useState,
 } from 'react';
 import { useStorageState } from '@/hooks/useStorageState';
+import { fetchProfile } from '@/lib/api';
 import { apiService } from '@/services/apiService';
 
 interface RefreshResponse {
   data: {
     accessToken: string;
     refreshToken: string;
-  };
-}
-
-interface ProfileResponse {
-  data: {
-    is_officer: boolean;
   };
 }
 
@@ -71,12 +66,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       await setAccessTokenSession(accessToken);
       await setRefreshTokenSession(refreshToken);
 
-      const response = await apiService.get<ProfileResponse>(
-        '/api/v1/auth/profile',
-      );
-
-      if (response.status === 200) {
-        setIsOfficer(response.data.data.is_officer);
+      try {
+        const profile = await fetchProfile();
+        setIsOfficer(profile.isOfficer);
+      } catch {
+        setIsOfficer(false);
       }
     },
     [setAccessTokenSession, setRefreshTokenSession],

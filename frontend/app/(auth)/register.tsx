@@ -13,7 +13,7 @@ import { Text } from "@/components/ui/text";
 import { Lock, Mail, UserRound } from "lucide-react-native";
 import { useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
-import { apiService } from "@/services/apiService";
+import { LoginResult, loginUser, registerUser } from "@/lib/api";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
 /**
@@ -55,19 +55,41 @@ export default function Register() {
     if (!canSubmit || loading) return;
     try {
       setLoading(true);
-      const res = await apiService.post("/api/v1/auth/register", {
+      const payload = {
         firstName: sanitize(firstName),
         lastName: sanitize(lastName),
         username: sanitize(username),
         email: sanitize(email),
         password,
+      };
+
+      await registerUser(payload);
+
+      const loginResult: LoginResult = await loginUser({
+        username: payload.username,
+        password,
       });
-      const { accessToken, refreshToken } = res.data.data;
-      await login(accessToken, refreshToken);
+
+      if (loginResult.status === "mfa_required") {
+        toast.success("Account created. Complete MFA to finish sign-in.");
+        router.replace({
+          pathname: "/mfa",
+          params: {
+            username: payload.username,
+            password,
+            token: loginResult.mfaToken,
+            role: "citizen",
+          },
+        });
+        return;
+      }
+
+      await login(loginResult.accessToken, loginResult.refreshToken);
       toast.success("Welcome!");
       router.replace("/home");
     } catch (e: any) {
-      const message = e.response?.data?.message ?? "Registration failed";
+      const message =
+        e.response?.data?.message ?? e.message ?? "Registration failed";
       toast.error(message);
     } finally {
       setLoading(false);

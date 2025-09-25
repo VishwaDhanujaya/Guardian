@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { fetchProfile } from '@/lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 import {
@@ -77,10 +76,12 @@ const TONE_BG_FAINT: Record<Tone, string> = {
  */
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
-  const role: Role = params.role === 'officer' ? 'officer' : 'citizen';
+const paramRole = params.role === 'officer' ? 'officer' : params.role === 'citizen' ? 'citizen' : undefined;
 
-  const [profile, setProfile] = useState<{ name: string } | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+const [profile, setProfile] = useState<{ name: string; isOfficer: boolean } | null>(null);
+const [profileLoading, setProfileLoading] = useState(true);
+
+const role: Role = profile?.isOfficer ? 'officer' : paramRole ?? 'citizen';
 
   // Greeting + date (local)
   const now = new Date();
@@ -230,20 +231,18 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
-    AsyncStorage.getItem('authToken').then((token: string | null) => {
-      fetchProfile(token ?? '', role)
-        .then((data) => {
-          if (mounted) setProfile(data);
-        })
-        .catch(() => toast.error('Failed to load profile'))
-        .finally(() => {
-          if (mounted) setProfileLoading(false);
-        });
-    });
+    fetchProfile()
+      .then((data) => {
+        if (mounted) setProfile(data);
+      })
+      .catch(() => toast.error('Failed to load profile'))
+      .finally(() => {
+        if (mounted) setProfileLoading(false);
+      });
     return () => {
       mounted = false;
     };
-  }, [role]);
+  }, []);
 
   // KPI trends (optional visuals kept, values illustrative)
   const trends = {

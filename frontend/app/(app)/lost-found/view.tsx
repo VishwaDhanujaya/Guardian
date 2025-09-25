@@ -56,6 +56,21 @@ export default function LostFoundView() {
   const [newNoteDraft, setNewNoteDraft] = useState("");
   const [newNoteHeight, setNewNoteHeight] = useState<number | undefined>(undefined);
 
+  const readableStatus = useCallback((value?: string) => {
+    switch (value) {
+      case "PENDING":
+        return "Pending";
+      case "INVESTIGATING":
+        return "Investigating";
+      case "FOUND":
+        return "Found";
+      case "CLOSED":
+        return "Closed";
+      default:
+        return value ?? "Unknown";
+    }
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -69,15 +84,18 @@ export default function LostFoundView() {
           color: data.color ?? "",
           lastLocation: data.lastLocation ?? "",
         });
-        if (type === "lost" && "status" in data && data.status) setStatus(data.status);
-      } catch {
+        if (type === "lost" && "status" in data && data.status) {
+          setStatus(readableStatus(data.status));
+        }
+      } catch (error: any) {
+        toast.error(error.response?.data?.message ?? "Failed to load item");
         setError(true);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [id, type]);
+  }, [id, type, readableStatus]);
 
   // ⇣ Key change: for officers, always honor the tab they came from
   const section = useMemo<Section | undefined>(() => {
