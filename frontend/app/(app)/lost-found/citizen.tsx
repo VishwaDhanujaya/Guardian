@@ -41,7 +41,9 @@ export default function CitizenLostFound() {
   useEffect(() => {
     fetchFoundItems()
       .then(setFoundItems)
-      .catch(() => toast.error("Failed to load items"))
+      .catch((error: any) =>
+        toast.error(error.response?.data?.message ?? "Failed to load items"),
+      )
       .finally(() => setLoadingItems(false));
   }, []);
 
@@ -80,8 +82,8 @@ export default function CitizenLostFound() {
       resetForm();
       setOpenForm(false);
       router.replace({ pathname: "/incidents/my-reports", params: { role: "citizen", filter: "lost" } });
-    } catch (e) {
-      toast.error("Failed to submit");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Failed to submit");
     } finally {
       setSubmitting(false);
     }

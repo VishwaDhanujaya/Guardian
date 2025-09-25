@@ -29,7 +29,7 @@ import {
 } from "lucide-react-native";
 import { useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
-import { apiService } from "@/services/apiService";
+import { LoginResult, loginUser } from "@/lib/api";
 
 type Role = "citizen" | "officer";
 
@@ -109,17 +109,31 @@ export default function Login() {
     if (safeId !== identifier) setIdentifier(safeId);
     try {
       setLoading(true);
-      const res = await apiService.post("/api/v1/auth/login", {
-        identifier: safeId,
+      const result: LoginResult = await loginUser({
+        username: safeId,
         password,
-        role: isOfficer ? "officer" : "citizen",
       });
-      const { accessToken, refreshToken } = res.data.data;
-      await login(accessToken, refreshToken);
+
+      if (result.status === "mfa_required") {
+        toast.info("Additional verification required");
+        router.push({
+          pathname: "/mfa",
+          params: {
+            username: safeId,
+            password,
+            token: result.mfaToken,
+            role: isOfficer ? "officer" : "citizen",
+          },
+        });
+        return;
+      }
+
+      await login(result.accessToken, result.refreshToken);
       toast.success("Welcome back!");
       router.replace("/home");
     } catch (e: any) {
-      const message = e.response?.data?.message ?? "Sign in failed";
+      const message =
+        e.response?.data?.message ?? e.message ?? "Sign in failed";
       toast.error(message);
     } finally {
       setLoading(false);

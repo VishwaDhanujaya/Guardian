@@ -1,7 +1,7 @@
 // app/(app)/alerts/edit.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Animated, Keyboard, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -38,27 +38,10 @@ export default function EditAlert() {
     transform: [{ translateY: mount.interpolate({ inputRange: [0.9, 1], outputRange: [6, 0] }) }],
   } as const;
 
-// Mock fetch (retain for testing when backend is unavailable)
-  const mockExisting = useMemo(() => {
-    if (!id) return null;
-    if (id === "a1") {
-      return {
-        id: "a1",
-        title: "Road closure at Main St",
-        message: "Main St closed 9–12 for parade. Use 5th Ave detour.",
-        region: "Central Branch",
-      } as AlertDraft;
-    }
-    return null;
-  }, [id]);
-
-  // Load existing alert
-  const [existing, setExisting] = useState<AlertDraft | null>(mockExisting);
-  const [title, setTitle] = useState(mockExisting?.title ?? "Road closure at Main St");
-  const [message, setMessage] = useState(
-    mockExisting?.message ?? "Main St closed 9–12 for parade. Use 5th Ave detour."
-  );
-  const [region, setRegion] = useState(mockExisting?.region ?? "Central Branch");
+  const [existing, setExisting] = useState<AlertDraft | null>(null);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [category, setCategory] = useState("");
   const [messageHeight, setMessageHeight] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,15 +54,17 @@ export default function EditAlert() {
           setExisting(data);
           setTitle(data.title);
           setMessage(data.message);
-          setRegion(data.region);
+          setCategory(data.category);
         })
-        .catch(() => toast.error("Failed to load alert, using mock"))
+        .catch((error: any) =>
+          toast.error(error?.response?.data?.message ?? "Failed to load alert"),
+        )
         .finally(() => setLoading(false));
     }
   }, [id]);
 
   // Validation
-  const canSave = title.trim().length > 0 && message.trim().length > 0 && region.trim().length > 0;
+  const canSave = title.trim().length > 0 && message.trim().length > 0 && category.trim().length > 0;
 
   const onSave = async () => {
     if (!canSave || saving) {
@@ -88,11 +73,11 @@ export default function EditAlert() {
     }
     try {
       setSaving(true);
-      await saveAlert({ id: existing?.id, title, message, region });
+      await saveAlert({ id: existing?.id, title, message, category });
       toast.success(existing?.id ? "Alert updated" : "Alert created");
       router.replace({ pathname: "/alerts/manage", params: { role: "officer" } });
-    } catch (e) {
-      toast.error("Failed to save alert");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Failed to save alert");
     } finally {
       setSaving(false);
     }
@@ -151,16 +136,16 @@ export default function EditAlert() {
               />
             </View>
 
-            {/* Region */}
+            {/* Category */}
             <View>
-              <Label nativeID="regionLbl">
-                <Text className="text-[12px] text-foreground">Region / Branch *</Text>
+              <Label nativeID="categoryLbl">
+                <Text className="text-[12px] text-foreground">Category *</Text>
               </Label>
               <Input
-                aria-labelledby="regionLbl"
-                value={region}
-                onChangeText={setRegion}
-                placeholder="E.g., Central Branch"
+                aria-labelledby="categoryLbl"
+                value={category}
+                onChangeText={setCategory}
+                placeholder="E.g., Severe weather"
                 className="bg-background rounded-xl mt-1"
                 returnKeyType="next"
               />
@@ -219,7 +204,7 @@ export default function EditAlert() {
 
             {!canSave ? (
               <Text className="text-[11px] text-muted-foreground mt-1">
-                Title, Region and Message are required.
+                Title, Category and Message are required.
               </Text>
             ) : null}
           </Animated.View>

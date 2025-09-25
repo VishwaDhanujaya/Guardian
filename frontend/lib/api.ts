@@ -1,96 +1,124 @@
-// Mock API helpers for authentication and data fetching
-// Replace the mock URL and responses with real backend integration later
+import { AxiosResponse } from 'axios';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://mockapi.local';
+import { apiService } from '@/services/apiService';
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-async function mockRequest(path: string, init?: RequestInit): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}${path}`, init);
-  } catch {
-    // ignore network errors – this is a mock
-  }
-  await delay(500);
-}
-
-export type AuthResponse = {
-  token: string;
-  user: { name: string; role: 'citizen' | 'officer' };
-  requiresMfa?: boolean;
+type HttpResponse<T> = {
+  status: 'success' | 'error';
+  data: T;
+  message: string;
 };
 
-export async function loginUser(
-  identifier: string,
-  password: string,
-  role: 'citizen' | 'officer',
-): Promise<AuthResponse> {
-  await mockRequest('/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, password, role }),
+function unwrap<T>(response: AxiosResponse<HttpResponse<T>>): T {
+  return response.data.data;
+}
+
+function mapName(first?: string | null, last?: string | null): string {
+  const parts = [first, last].filter(Boolean);
+  if (parts.length === 0) return 'Unknown user';
+  return parts.join(' ');
+}
+
+export type LoginSuccess = {
+  status: 'authenticated';
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type LoginRequiresMfa = {
+  status: 'mfa_required';
+  mfaToken: string;
+};
+
+export type LoginResult = LoginSuccess | LoginRequiresMfa;
+
+export async function loginUser({
+  username,
+  password,
+}: {
+  username: string;
+  password: string;
+}): Promise<LoginResult> {
+  const response = await apiService.post<HttpResponse<{
+    accessToken?: string;
+    refreshToken?: string;
+    mfa_token?: string;
+  }>>('/api/v1/auth/login', {
+    username,
+    password,
   });
 
-  if (identifier === 'error') {
-    throw new Error('Invalid credentials');
+  if (response.data.message === 'mfa_required' && response.data.data?.mfa_token) {
+    return { status: 'mfa_required', mfaToken: response.data.data.mfa_token };
   }
 
-  return {
-    token: 'mock-jwt',
-    user: { name: 'Test User', role },
-    requiresMfa: role === 'officer',
-  };
+  const { accessToken, refreshToken } = response.data.data ?? {};
+
+  if (!accessToken || !refreshToken) {
+    throw new Error('Login response missing tokens');
+  }
+
+  return { status: 'authenticated', accessToken, refreshToken };
 }
 
 export async function registerUser(data: {
   firstName: string;
   lastName: string;
   username: string;
-  email: string;
+  email?: string;
   password: string;
-}): Promise<AuthResponse> {
-  await mockRequest('/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+}): Promise<void> {
+  await apiService.post('/api/v1/auth/register', {
+    username: data.username,
+    password: data.password,
+    email: data.email,
+    first_name: data.firstName,
+    last_name: data.lastName,
   });
+}
 
-  if (data.email.endsWith('@taken.com')) {
-    throw new Error('Email already registered');
-  }
+export async function verifyMfa({
+  code,
+  token,
+}: {
+  code: string;
+  token: string;
+}): Promise<void> {
+  await apiService.post('/api/v1/mfa/verify-code', {
+    code,
+    mfa_token: token,
+  });
+}
 
+export async function resendMfaToken(token: string): Promise<string> {
+  const response = await apiService.post<HttpResponse<{ mfa_token: string }>>(
+    '/api/v1/mfa/resend-code',
+    {
+      mfa_token: token,
+    },
+  );
+
+  return unwrap(response).mfa_token;
+}
+
+export type Profile = {
+  id: number;
+  username: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  is_officer?: number | boolean;
+};
+
+export async function fetchProfile(): Promise<{
+  name: string;
+  isOfficer: boolean;
+}> {
+  const response = await apiService.get<HttpResponse<Profile>>('/api/v1/auth/profile');
+  const profile = unwrap(response);
   return {
-    token: 'mock-jwt',
-    user: { name: `${data.firstName} ${data.lastName}`, role: 'citizen' },
+    name: mapName(profile.first_name, profile.last_name) || profile.username,
+    isOfficer: Boolean(profile.is_officer),
   };
-}
-
-export async function verifyMfa(
-  code: string,
-  role: 'citizen' | 'officer',
-): Promise<AuthResponse> {
-  await mockRequest('/mfa', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, role }),
-  });
-
-  if (code !== '123456') {
-    throw new Error('Invalid code');
-  }
-
-  return { token: 'mock-jwt', user: { name: 'Test User', role } };
-}
-
-export async function fetchProfile(
-  token: string,
-  role: 'citizen' | 'officer',
-): Promise<{ name: string; role: 'citizen' | 'officer' }> {
-  await mockRequest('/profile', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return { name: role === 'officer' ? 'Officer Mock' : 'Test User', role };
 }
 
 // Alerts
@@ -98,51 +126,71 @@ export type AlertDraft = {
   id?: string;
   title: string;
   message: string;
-  region: string;
+  category: string;
 };
 
 export type AlertRow = {
   id: string;
   title: string;
   message: string;
-  region: string;
+  category: string;
+  createdAt?: string;
 };
 
-export async function fetchAlerts(): Promise<AlertRow[]> {
-  await mockRequest('/alerts');
-  return [
-    {
-      id: 'a1',
-      title: 'Road closure at Main St',
-      message: 'Main St closed 9–12 for parade. Use 5th Ave detour.',
-      region: 'Central Branch',
-    },
-    {
-      id: 'a2',
-      title: 'Severe weather advisory',
-      message: 'Heavy rains expected. Avoid low-lying roads.',
-      region: 'West Branch',
-    },
-  ];
-}
+type ApiAlert = {
+  id: number;
+  title: string;
+  description: string;
+  type: string;
+  created_at?: string;
+};
 
-export async function getAlert(id: string): Promise<AlertDraft> {
-  await mockRequest(`/alerts/${id}`);
+function mapAlert(alert: ApiAlert): AlertRow {
   return {
-    id,
-    title: 'Road closure at Main St',
-    message: 'Main St closed 9–12 for parade. Use 5th Ave detour.',
-    region: 'Central Branch',
+    id: String(alert.id),
+    title: alert.title,
+    message: alert.description,
+    category: alert.type,
+    createdAt: alert.created_at ?? undefined,
   };
 }
 
-export async function saveAlert(data: AlertDraft): Promise<AlertDraft> {
-  await mockRequest(data.id ? `/alerts/${data.id}` : '/alerts', {
-    method: data.id ? 'PUT' : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+export async function fetchAlerts(page?: number): Promise<AlertRow[]> {
+  const response = await apiService.get<HttpResponse<ApiAlert[]>>('/api/v1/alerts', {
+    params: page !== undefined ? { page } : undefined,
   });
-  return { ...data, id: data.id ?? 'new-alert' };
+
+  return unwrap(response).map(mapAlert);
+}
+
+export async function getAlert(id: string): Promise<AlertDraft> {
+  const response = await apiService.get<HttpResponse<ApiAlert>>(`/api/v1/alerts/${id}`);
+  const alert = unwrap(response);
+  return {
+    id: String(alert.id),
+    title: alert.title,
+    message: alert.description,
+    category: alert.type,
+  };
+}
+
+export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
+  if (data.id) {
+    // No dedicated update endpoint; recreate after deleting the old alert.
+    await apiService.delete(`/api/v1/alerts/${data.id}`);
+  }
+
+  const response = await apiService.post<HttpResponse<ApiAlert>>('/api/v1/alerts', {
+    title: data.title,
+    description: data.message,
+    type: data.category,
+  });
+
+  return mapAlert(unwrap(response));
+}
+
+export async function deleteAlert(id: string): Promise<void> {
+  await apiService.delete(`/api/v1/alerts/${id}`);
 }
 
 // Incidents
@@ -161,34 +209,144 @@ export type Report = {
   notes: Note[];
 };
 
+type ApiReport = {
+  id: number;
+  description: string;
+  longitude?: number | null;
+  latitude?: number | null;
+  user_id: number;
+  status: 'PENDING' | 'IN-PROGRESS' | 'COMPLETED' | 'CLOSED';
+  priority?: number | null;
+  createdAt?: string | null;
+};
+
+type ApiNote = {
+  id: number;
+  subject: string;
+  content: string;
+  created_at?: string;
+};
+
+function mapPriority(score?: number | null): 'Urgent' | 'Normal' | 'Low' {
+  if (typeof score !== 'number') return 'Normal';
+  if (score >= 70) return 'Urgent';
+  if (score <= 30) return 'Low';
+  return 'Normal';
+}
+
+function mapStatus(status: ApiReport['status']): Report['status'] {
+  switch (status) {
+    case 'IN-PROGRESS':
+      return 'Ongoing';
+    case 'COMPLETED':
+    case 'CLOSED':
+      return 'Resolved';
+    case 'PENDING':
+      return 'In Review';
+    default:
+      return 'New';
+  }
+}
+
+function mapReportNotes(notes: ApiNote[] | undefined): Note[] {
+  if (!notes) return [];
+  return notes.map((note) => ({
+    id: String(note.id),
+    text: note.content,
+    at: note.created_at ? new Date(note.created_at).toLocaleString() : 'Unknown',
+    by: note.subject || 'Officer',
+  }));
+}
+
+function buildTitle(description: string): string {
+  if (!description) return 'Incident report';
+  const trimmed = description.trim();
+  if (trimmed.length <= 60) return trimmed;
+  return `${trimmed.slice(0, 57)}…`;
+}
+
 export async function getIncident(id: string): Promise<Report> {
-  await mockRequest(`/incidents/${id}`);
+  const reportRes = await apiService.get<HttpResponse<ApiReport>>(`/api/v1/reports/${id}`);
+  const report = unwrap(reportRes);
+
+  let notes: Note[] = [];
+  try {
+    const notesRes = await apiService.get<HttpResponse<ApiNote[]>>(
+      `/api/v1/notes/resource/${id}`,
+      {
+        params: { resourceType: 'report' },
+      },
+    );
+    notes = mapReportNotes(unwrap(notesRes));
+  } catch {
+    notes = [];
+  }
+
+  const createdAt = report.createdAt ? new Date(report.createdAt) : null;
+  const reportedAt = createdAt
+    ? createdAt.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Unknown';
+
+  const location =
+    report.latitude !== null && report.latitude !== undefined &&
+    report.longitude !== null && report.longitude !== undefined
+      ? `${report.latitude.toFixed(3)}, ${report.longitude.toFixed(3)}`
+      : 'Location unavailable';
+
   return {
-    id,
-    title: 'Traffic accident · Main St',
+    id: String(report.id),
+    title: buildTitle(report.description),
     category: 'Safety',
-    location: 'Main St & 3rd Ave',
-    reportedBy: 'Alex Johnson',
-    reportedAt: 'Today · 3:10 PM',
-    status: 'In Review',
-    priority: 'Urgent',
-    description:
-      'Two vehicles collided at the intersection. No visible fire. One lane blocked. Requesting traffic control.',
-    notes: [
-      { id: 'n1', text: 'Report received. Reviewing details.', at: '3:12 PM', by: 'System' },
-    ],
+    location,
+    reportedBy: `User #${report.user_id}`,
+    reportedAt,
+    status: mapStatus(report.status),
+    priority: mapPriority(report.priority ?? undefined),
+    description: report.description,
+    notes,
   };
 }
 
 // Lost & Found
 export type FoundItem = { id: string; title: string; meta: string };
 
+type ApiLostItem = {
+  id: number;
+  name: string;
+  description?: string;
+  model?: string;
+  serial_number?: string;
+  color?: string;
+  branch?: string;
+  longitude?: number | null;
+  latitude?: number | null;
+  status?: string;
+  created_at?: string;
+  user_id?: number;
+};
+
 export async function fetchFoundItems(): Promise<FoundItem[]> {
-  await mockRequest('/lost-found');
-  return [
-    { id: 'f1', title: 'Wallet', meta: 'Negombo · Brown leather' },
-    { id: 'f2', title: 'Phone', meta: 'Colombo · Samsung, black' },
-  ];
+  try {
+    const response = await apiService.get<HttpResponse<ApiLostItem[]>>(
+      '/api/v1/lost-articles/all',
+    );
+    const items = unwrap(response);
+    return items.map((item) => ({
+      id: String(item.id),
+      title: item.name,
+      meta: item.branch ? `${item.branch} · ${item.color ?? 'Unspecified'}` : item.color ?? 'Unspecified',
+    }));
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function reportLostItem(data: {
@@ -199,15 +357,17 @@ export async function reportLostItem(data: {
   lastLoc: string;
   color: string;
 }): Promise<{ success: boolean }> {
-  await mockRequest('/lost-found', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+  await apiService.post('/api/v1/lost-articles', {
+    name: data.itemName,
+    description: data.desc || 'Not provided',
+    model: data.model || 'Unknown',
+    serial_number: data.serial || 'Unknown',
+    color: data.color || 'Unknown',
+    longitude: 0,
+    latitude: 0,
+    status: 'PENDING',
+    branch: data.lastLoc || 'UNSPECIFIED',
   });
-
-  if (data.itemName.toLowerCase() === 'fail') {
-    throw new Error('Submission failed');
-  }
 
   return { success: true };
 }
@@ -225,17 +385,20 @@ export type FoundItemDetail = {
 };
 
 export async function getFoundItem(id: string): Promise<FoundItemDetail> {
-  await mockRequest(`/lost-found/found/${id}`);
+  const response = await apiService.get<HttpResponse<ApiLostItem>>(
+    `/api/v1/lost-articles/${id}`,
+  );
+  const item = unwrap(response);
   return {
-    id,
-    name: "Wallet",
-    description: "Brown leather wallet",
-    model: "N/A",
-    serial: "N/A",
-    color: "Brown",
-    lastLocation: "Negombo PS",
-    branch: "Negombo",
-    postedAt: "Today 10:30",
+    id: String(item.id),
+    name: item.name,
+    description: item.description,
+    model: item.model,
+    serial: item.serial_number,
+    color: item.color,
+    lastLocation: item.branch,
+    branch: item.branch,
+    postedAt: item.created_at,
   };
 }
 
@@ -253,18 +416,25 @@ export type LostItemDetail = {
 };
 
 export async function getLostItem(id: string): Promise<LostItemDetail> {
-  await mockRequest(`/lost-found/lost/${id}`);
+  const response = await apiService.get<HttpResponse<ApiLostItem>>(
+    `/api/v1/lost-articles/${id}`,
+  );
+  const item = unwrap(response);
+  const reportedAt = item.created_at
+    ? new Date(item.created_at).toLocaleString()
+    : undefined;
+
   return {
-    id,
-    name: "Phone",
-    description: "Samsung black case",
-    model: "S21",
-    serial: "IMEI123",
-    color: "Black",
-    lastLocation: "Colombo Central",
-    reportedBy: "Priya K.",
-    reportedAt: "Yesterday 15:20",
-    status: "In Review",
+    id: String(item.id),
+    name: item.name,
+    description: item.description,
+    model: item.model,
+    serial: item.serial_number,
+    color: item.color,
+    lastLocation: item.branch,
+    reportedBy: item.user_id ? `User #${item.user_id}` : undefined,
+    reportedAt,
+    status: item.status,
   };
 }
 
