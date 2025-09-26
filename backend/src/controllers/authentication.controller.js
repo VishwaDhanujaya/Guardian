@@ -18,7 +18,11 @@ class AuthenticationController {
     const user = await authenticationService.login(req.body);
 
     if (!user) {
-      return new HttpResponse(400, {}, "").json(res);
+      return new HttpResponse(
+        400,
+        {},
+        "Invalid username or password",
+      ).json(res);
     }
 
     if (user.mfa_required) {
@@ -41,10 +45,14 @@ class AuthenticationController {
       .cookie(ACCESS_TOKEN_COOKIE_NAME, access, cookieOptions)
       .cookie(REFRESH_TOKEN_COOKIE_NAME, refresh, cookieOptions);
 
-    new HttpResponse(200, {
-      accessToken: access,
-      refreshToken: refresh,
-    }).json(res);
+    new HttpResponse(
+      200,
+      {
+        accessToken: access,
+        refreshToken: refresh,
+      },
+      "Login successful",
+    ).json(res);
   }
 
   /**
@@ -54,7 +62,7 @@ class AuthenticationController {
   async register(req, res) {
     await authenticationService.register(req.body);
 
-    new HttpResponse(200, {}, "").json(res);
+    new HttpResponse(200, {}, "Registration successful").json(res);
   }
 
   /**

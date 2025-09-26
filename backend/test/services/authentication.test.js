@@ -81,7 +81,7 @@ describe("AuthenticationService", function () {
       )
         .to.rejectedWith(HttpError)
         .then((error) => {
-          expect(error.clientMessage).to.be.equal("Bad Login Request");
+          expect(error.clientMessage).to.be.equal("Invalid username or password");
           expect(error.code).to.be.equal(400);
         });
     });
@@ -101,7 +101,7 @@ describe("AuthenticationService", function () {
       await expect(authenticationService.login(userDetails))
         .to.rejectedWith(HttpError)
         .then((error) => {
-          expect(error.clientMessage).to.be.equal("Bad Login Request");
+          expect(error.clientMessage).to.be.equal("Invalid username or password");
           expect(error.code).to.be.equal(400);
         });
     });
@@ -122,7 +122,7 @@ describe("AuthenticationService", function () {
       await expect(authenticationService.login(userDetails))
         .to.rejectedWith(HttpError)
         .then((error) => {
-          expect(error.clientMessage).to.be.equal("Bad Login Request");
+          expect(error.clientMessage).to.be.equal("Invalid username or password");
           expect(error.code).to.be.equal(400);
         });
     });
