@@ -3,10 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "dev": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
-    "android": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --android",
-    "ios": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --ios",
-    "web": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --web",
+    "dev": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
+    "android": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --android",
+    "ios": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --ios",
+    "web": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --web",
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
@@ -52,6 +52,7 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@types/react": "~19.0.14",
+    "cross-env": "^7.0.3",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "typescript": "~5.8.3"
