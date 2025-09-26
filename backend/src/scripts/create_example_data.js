@@ -73,8 +73,9 @@ async function createOfficers(createOfficersCount = 10) {
   const usernamePasswordPairs = [];
 
   for (let i = 0; i < createOfficersCount; i++) {
+    const officerIdNumber = faker.string.numeric({ length: 5, allowLeadingZeros: false });
     const officer = new UserModel(
-      `OF-${faker.helpers.rangeToNumber({ min: 100, max: 999 })}`,
+      `OF-${officerIdNumber}`,
       faker.internet.email(),
       faker.internet.password(),
       faker.person.firstName(),

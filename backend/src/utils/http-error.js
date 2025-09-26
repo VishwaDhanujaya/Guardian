@@ -1,5 +1,14 @@
+const { STATUS_CODES } = require("node:http");
 const HttpResponse = require("./http-response-helper");
 const defaultLogger = require("../config/logging");
+
+function getDefaultMessage(code) {
+  if (!code) {
+    return "Error";
+  }
+
+  return STATUS_CODES?.[code] || "Error";
+}
 
 class HttpError extends Error {
   code;
@@ -21,18 +30,21 @@ class HttpError extends Error {
     { code = 500, clientMessage = "", data = {}, id = "", path = "" },
     err = null,
   ) {
-    super(clientMessage || "");
+    const fallbackMessage =
+      clientMessage || err?.clientMessage || err?.message || getDefaultMessage(code);
+
+    super(fallbackMessage);
 
     if (err) {
       this.stack = this.stack + `\n${err.stack}`;
-      this.message = err.message;
       Error.captureStackTrace?.(this, this.constructor);
     }
 
     this.path = path;
     this.code = code;
     this.data = data;
-    this.clientMessage = clientMessage;
+    this.clientMessage = fallbackMessage;
+    this.message = err?.message || fallbackMessage;
   }
 
   /**
