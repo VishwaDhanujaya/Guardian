@@ -1,4 +1,3 @@
-console.log(process.env.NODE_PATH);
 const {
   MFA_CUTOFF_TIMESTAMP,
   MFA_ACCESS_TOKEN_WINDOW_SECONDS,
