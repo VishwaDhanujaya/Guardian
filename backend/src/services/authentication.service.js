@@ -61,7 +61,10 @@ class AuthenticationService {
       if (user) {
         this.failedLoginAttempt(user.id);
       }
-      throw new HttpError({ code: 400, clientMessage: "Bad Login Request" });
+      throw new HttpError({
+        code: 400,
+        clientMessage: "Invalid username or password",
+      });
     }
 
     await this.updateLastSeen(user.id);
