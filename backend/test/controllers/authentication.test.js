@@ -139,6 +139,28 @@ describe("AuthenticationController", () => {
           expect(error.code).to.be.equal(400);
         });
     });
+
+    it("should return bad request when DUMMY_HASH env is missing", async () => {
+      req.body = {
+        username: "unknown",
+        password: "example123",
+      };
+
+      const originalDummyHash = process.env.DUMMY_HASH;
+      delete process.env.DUMMY_HASH;
+
+      baseModelStubs.findBy.resolves(null);
+
+      try {
+        await expect(authenticationController.login(req, res))
+          .to.be.rejectedWith(HttpError)
+          .then((error) => {
+            expect(error.code).to.be.equal(400);
+          });
+      } finally {
+        process.env.DUMMY_HASH = originalDummyHash;
+      }
+    });
   });
 
   describe("register", () => {

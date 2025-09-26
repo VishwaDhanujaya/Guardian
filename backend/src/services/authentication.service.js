@@ -14,10 +14,25 @@ const {
 const AppError = require("../utils/app-error");
 const mfaService = require("./mfa.service");
 
+// Fallback Argon2 hash used when the DUMMY_HASH env var is missing or invalid.
+// Hash generated from the string "GuardianDummyPassword" with default argon2 settings.
+const DEFAULT_DUMMY_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=4$fJH5M6/xXlxICACVyPwAww$GiZbVy10d2v14mESB4iXXZJarM6OjyP287NPdOVrGdk";
+
 const UserLogin = z.object({
   username: z.string(),
   password: z.string(),
 });
+
+async function verifyPasswordHash(hash, password) {
+  const targetHash = hash || DEFAULT_DUMMY_HASH;
+
+  try {
+    return await argon2.verify(targetHash, password);
+  } catch {
+    return false;
+  }
+}
 
 const UserRegister = z.object({
   username: z.string().min(5),
@@ -38,7 +53,7 @@ class AuthenticationService {
     const user = await UserModel.findBy("username", validated.username);
 
     const validPassword = !user
-      ? await argon2.verify(process.env.DUMMY_HASH, validated.password)
+      ? await verifyPasswordHash(process.env.DUMMY_HASH, validated.password)
       : await user.verifyPassword(validated.password);
     const blocked = await this.userIsLoginBlocked(!user ? null : user.id);
 
