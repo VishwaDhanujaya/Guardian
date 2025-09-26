@@ -36,6 +36,16 @@ import {
 import { AuthContext } from "@/context/AuthContext";
 import { apiService } from "@/services/apiService";
 
+interface LoginResponse {
+  status: string;
+  data: {
+    accessToken?: string;
+    refreshToken?: string;
+    mfa_token?: string;
+  };
+  message?: string;
+}
+
 type Role = "citizen" | "officer";
 
 /**
@@ -114,17 +124,41 @@ export default function Login() {
     if (safeId !== identifier) setIdentifier(safeId);
     try {
       setLoading(true);
-      const res = await apiService.post("/api/v1/auth/login", {
-        identifier: safeId,
-        password,
-        role: isOfficer ? "officer" : "citizen",
-      });
+      const res = await apiService.post<LoginResponse>(
+        "/api/v1/auth/login",
+        {
+          username: safeId,
+          password,
+        },
+      );
+
+      if (res.data.message === "mfa_required") {
+        if (res.data.data?.mfa_token) {
+          toast.info("Two-factor verification required");
+          router.push({
+            pathname: "/mfa",
+            params: {
+              role: isOfficer ? "officer" : "citizen",
+              token: res.data.data.mfa_token,
+            },
+          });
+          return;
+        }
+
+        throw new Error("Missing MFA token");
+      }
+
       const { accessToken, refreshToken } = res.data.data;
+
+      if (!accessToken || !refreshToken) {
+        throw new Error("Authentication tokens were not returned");
+      }
+
       await login(accessToken, refreshToken);
       toast.success("Welcome back!");
       router.replace("/home");
     } catch (e: any) {
-      const message = e.response?.data?.message ?? "Sign in failed";
+      const message = e.response?.data?.message ?? e.message ?? "Sign in failed";
       toast.error(message);
     } finally {
       setLoading(false);
