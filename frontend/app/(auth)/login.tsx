@@ -1,6 +1,12 @@
 // app/(auth)/login.tsx
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useContext,
+  type ComponentType,
+} from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -27,9 +33,8 @@ import {
   Shield,
   UserRound,
 } from "lucide-react-native";
-import { useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
-import { LoginResult, loginUser } from "@/lib/api";
+import { apiService } from "@/services/apiService";
 
 type Role = "citizen" | "officer";
 
@@ -109,31 +114,17 @@ export default function Login() {
     if (safeId !== identifier) setIdentifier(safeId);
     try {
       setLoading(true);
-      const result: LoginResult = await loginUser({
-        username: safeId,
+      const res = await apiService.post("/api/v1/auth/login", {
+        identifier: safeId,
         password,
+        role: isOfficer ? "officer" : "citizen",
       });
-
-      if (result.status === "mfa_required") {
-        toast.info("Additional verification required");
-        router.push({
-          pathname: "/mfa",
-          params: {
-            username: safeId,
-            password,
-            token: result.mfaToken,
-            role: isOfficer ? "officer" : "citizen",
-          },
-        });
-        return;
-      }
-
-      await login(result.accessToken, result.refreshToken);
+      const { accessToken, refreshToken } = res.data.data;
+      await login(accessToken, refreshToken);
       toast.success("Welcome back!");
       router.replace("/home");
     } catch (e: any) {
-      const message =
-        e.response?.data?.message ?? e.message ?? "Sign in failed";
+      const message = e.response?.data?.message ?? "Sign in failed";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -333,7 +324,7 @@ function SegTab({
 }: {
   active: boolean;
   label: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+    icon: ComponentType<{ size?: number; color?: string }>;
   onPress: () => void;
 }) {
   return (

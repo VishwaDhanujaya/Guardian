@@ -1,7 +1,7 @@
 // app/(app)/lost-found/view.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, View } from "react-native";
 
 import { toast } from "@/components/toast";
@@ -56,21 +56,6 @@ export default function LostFoundView() {
   const [newNoteDraft, setNewNoteDraft] = useState("");
   const [newNoteHeight, setNewNoteHeight] = useState<number | undefined>(undefined);
 
-  const readableStatus = useCallback((value?: string) => {
-    switch (value) {
-      case "PENDING":
-        return "Pending";
-      case "INVESTIGATING":
-        return "Investigating";
-      case "FOUND":
-        return "Found";
-      case "CLOSED":
-        return "Closed";
-      default:
-        return value ?? "Unknown";
-    }
-  }, []);
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -84,18 +69,15 @@ export default function LostFoundView() {
           color: data.color ?? "",
           lastLocation: data.lastLocation ?? "",
         });
-        if (type === "lost" && "status" in data && data.status) {
-          setStatus(readableStatus(data.status));
-        }
-      } catch (error: any) {
-        toast.error(error.response?.data?.message ?? "Failed to load item");
+        if (type === "lost" && "status" in data && data.status) setStatus(data.status);
+      } catch {
         setError(true);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [id, type, readableStatus]);
+  }, [id, type]);
 
   // ⇣ Key change: for officers, always honor the tab they came from
   const section = useMemo<Section | undefined>(() => {

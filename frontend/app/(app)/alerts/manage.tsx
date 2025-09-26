@@ -1,7 +1,7 @@
 // app/(app)/alerts/manage.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -14,8 +14,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { fetchAlerts, AlertRow, deleteAlert } from "@/lib/api";
-import { useFocusEffect } from "expo-router";
+import { fetchAlerts, AlertRow } from "@/lib/api";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
 import {
@@ -53,23 +52,12 @@ export default function ManageAlerts() {
   const [rows, setRows] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadAlerts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchAlerts();
-      setRows(data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message ?? "Failed to load alerts");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    fetchAlerts()
+      .then(setRows)
+      .catch(() => toast.error("Failed to load alerts"))
+      .finally(() => setLoading(false));
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadAlerts();
-    }, [loadAlerts]),
-  );
 
   const visibleRows = useMemo(() => [...rows], [rows]);
 
@@ -78,15 +66,11 @@ export default function ManageAlerts() {
   const editAlert = (id: string) => router.push({ pathname: "/alerts/edit", params: { role: "officer", id } });
 
   // Actions
-  const onDeleteAlert = async (id: string) => {
-    try {
-      await deleteAlert(id);
-      setRows((prev) => prev.filter((r) => r.id !== id));
+  const deleteAlert = (id: string) =>
+    setRows(prev => {
       toast.success("Alert removed");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message ?? "Failed to delete alert");
-    }
-  };
+      return prev.filter(r => r.id !== id);
+    });
 
   return (
     <KeyboardAwareScrollView
@@ -155,7 +139,7 @@ export default function ManageAlerts() {
                       <View className="flex-row flex-wrap items-center gap-2 mt-1">
                         <View className="flex-row items-center gap-1">
                           <MapPin size={14} color="#0F172A" />
-                          <Text className="text-xs text-muted-foreground">{it.category}</Text>
+                          <Text className="text-xs text-muted-foreground">{it.region}</Text>
                         </View>
                       </View>
                     </View>
@@ -178,7 +162,7 @@ export default function ManageAlerts() {
                       size="sm"
                       variant="secondary"
                       className="h-9 px-3 rounded-lg"
-                      onPress={() => onDeleteAlert(it.id)}
+                      onPress={() => deleteAlert(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
                         <Trash2 size={14} color="#DC2626" />
