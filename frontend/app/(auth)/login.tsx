@@ -63,7 +63,17 @@ export default function Login() {
   const { login } = useContext(AuthContext);
 
   const isOfficer = tab === "officer";
-  const canContinue = identifier.trim().length > 0 && password.length >= 6;
+
+  const formatOfficerId = (value: string): string => {
+    const digits = value.replace(/\D+/g, "").slice(0, 3);
+    return digits.length > 0 ? `OF-${digits}` : "";
+  };
+
+  const officerDigits = identifier.replace(/\D+/g, "");
+  const citizenIdentifier = identifier.trim();
+  const canContinue = isOfficer
+    ? officerDigits.length === 3 && password.length >= 6
+    : citizenIdentifier.length > 0 && password.length >= 6;
   const passwordRef = useRef<any>(null);
 
   // Animations
@@ -112,7 +122,7 @@ export default function Login() {
    * - Citizen: collapse internal whitespace and trim.
    */
   const sanitizeIdentifier = (value: string): string => {
-    return isOfficer ? value.replace(/\D+/g, "") : value.replace(/\s+/g, "");
+    return isOfficer ? formatOfficerId(value) : value.replace(/\s+/g, "");
   };
 
   /**
@@ -253,7 +263,7 @@ export default function Login() {
                   aria-labelledby="identifierLabel"
                   value={identifier}
                   onChangeText={(text) => {
-                    setIdentifier(isOfficer ? text.replace(/\D+/g, "") : text.replace(/\s+/g, ""));
+                    setIdentifier(isOfficer ? formatOfficerId(text) : text.replace(/\s+/g, ""));
                   }}
                   onBlur={() => setIdentifier((prev) => sanitizeIdentifier(prev))}
                   autoCapitalize="none"
@@ -262,7 +272,7 @@ export default function Login() {
                   returnKeyType="next"
                   blurOnSubmit={false}
                   onSubmitEditing={() => passwordRef.current?.focus()}
-                  placeholder={isOfficer ? "000000" : "username"}
+                  placeholder={isOfficer ? "OF-123" : "username"}
                   className="bg-background h-12 rounded-xl pl-9"
                 />
               </View>
