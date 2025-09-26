@@ -58,6 +58,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const loading = isLoadingAccess || isLoadingRefresh;
 
+  const fetchProfile = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await apiService.get<ProfileResponse>(
+        '/api/v1/auth/profile',
+      );
+
+      if (response.status === 200) {
+        setIsOfficer(Boolean(response.data.data.is_officer));
+        return true;
+      }
+
+      setIsOfficer(false);
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        setIsOfficer(false);
+      }
+      return false;
+    }
+
+    return false;
+  }, [setIsOfficer]);
+
   useEffect(() => {
     if (!loading && accessTokenSession) {
       accessTokenIsValid().then((valid) => {
@@ -70,23 +92,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async (accessToken: string, refreshToken: string) => {
       await setAccessTokenSession(accessToken);
       await setRefreshTokenSession(refreshToken);
-
-      const response = await apiService.get<ProfileResponse>(
-        '/api/v1/auth/profile',
-      );
-
-      if (response.status === 200) {
-        setIsOfficer(response.data.data.is_officer);
-      }
+      await fetchProfile();
     },
-    [setAccessTokenSession, setRefreshTokenSession],
+    [fetchProfile, setAccessTokenSession, setRefreshTokenSession],
   );
 
   const logout = useCallback(async () => {
+    try {
+      await apiService.post('/api/v1/auth/logout');
+    } catch {
+      // no-op: network errors shouldn't block local logout
+    }
+
     await setAccessTokenSession(null);
     await setRefreshTokenSession(null);
     setIsOfficer(false);
-  }, [setAccessTokenSession, setRefreshTokenSession]);
+  }, [setAccessTokenSession, setRefreshTokenSession, setIsOfficer]);
 
   const refreshToken = useCallback(
     async (ignoreTimeCheck: boolean = false) => {
@@ -98,6 +119,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         try {
           const response = await apiService.post<RefreshResponse>(
             '/api/v1/auth/refresh',
+            undefined,
+            refreshTokenSession
+              ? { headers: { 'refresh-token': refreshTokenSession } }
+              : undefined,
           );
 
           if (response.status === 200) {
@@ -112,7 +137,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       return false;
     },
-    [lastRefreshCheck, setAccessTokenSession, setRefreshTokenSession],
+    [
+      lastRefreshCheck,
+      refreshTokenSession,
+      setAccessTokenSession,
+      setRefreshTokenSession,
+    ],
   );
 
   const checkAuthed = useCallback(async () => {
@@ -120,14 +150,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const request = await apiService.get('/api/v1/auth/is-authed');
       if (request.status !== 204) {
         await setAccessTokenSession(null);
+        setIsOfficer(false);
         if (await refreshToken(true)) {
           await checkAuthed();
         }
+      } else {
+        await fetchProfile();
       }
     } catch {
       await setAccessTokenSession(null);
+      setIsOfficer(false);
     }
-  }, [refreshToken, setAccessTokenSession]);
+  }, [fetchProfile, refreshToken, setAccessTokenSession, setIsOfficer]);
 
   return (
     <AuthContext.Provider
