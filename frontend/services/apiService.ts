@@ -7,9 +7,19 @@ export const apiService = axios.create({
 
 apiService.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const [accessToken, refreshToken] = await Promise.all([
+      SecureStore.getItemAsync('accessToken'),
+      SecureStore.getItemAsync('refreshToken'),
+    ]);
+
+    config.headers = config.headers ?? {};
+
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (refreshToken && !config.headers['refresh-token']) {
+      config.headers['refresh-token'] = refreshToken;
     }
     return config;
   },
@@ -25,12 +35,19 @@ apiService.interceptors.response.use(
         try {
           const refreshResponse = await axios.post(
             `${apiService.defaults.baseURL}/api/v1/auth/refresh`,
-            { refreshToken },
+            {},
+            {
+              headers: {
+                'refresh-token': refreshToken,
+              },
+            },
           );
           const { accessToken, refreshToken: newRefresh } = refreshResponse.data.data;
           await SecureStore.setItemAsync('accessToken', accessToken);
           await SecureStore.setItemAsync('refreshToken', newRefresh);
+          error.config.headers = error.config.headers ?? {};
           error.config.headers.Authorization = `Bearer ${accessToken}`;
+          error.config.headers['refresh-token'] = newRefresh;
           return apiService.request(error.config);
         } catch (refreshError) {
           await SecureStore.deleteItemAsync('accessToken');

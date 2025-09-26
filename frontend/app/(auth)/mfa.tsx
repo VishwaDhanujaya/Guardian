@@ -29,13 +29,34 @@ import useMountAnimation from "@/hooks/useMountAnimation";
  * - Mirrors the motion/visual language used in Login/Register.
  * - Supports officer vs. citizen copy via `role` query param.
  */
+interface VerifyResponse {
+  status: string;
+  data: {
+    accessToken?: string;
+    refreshToken?: string;
+  };
+  message?: string;
+}
+
+interface ResendResponse {
+  status: string;
+  data: {
+    mfa_token?: string;
+  };
+  message?: string;
+}
+
 export default function Mfa() {
-  const { role } = useLocalSearchParams<{ role?: string }>(); // "officer" | undefined
+  const { role, token: initialToken } = useLocalSearchParams<{
+    role?: string;
+    token?: string;
+  }>();
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
+  const [mfaToken, setMfaToken] = useState(initialToken ?? "");
 
   const isValid = code.length === 6;
 
@@ -44,18 +65,33 @@ export default function Mfa() {
    */
   const onVerify = async (): Promise<void> => {
     if (!isValid || loading) return;
+    if (!mfaToken) {
+      toast.error(
+        "Missing verification token. Please sign in again to request a new code.",
+      );
+      return;
+    }
+
     try {
       setLoading(true);
-      const res = await apiService.post("/api/v1/auth/mfa", {
-        code,
-        role: role === "officer" ? "officer" : "citizen",
-      });
+      const res = await apiService.post<VerifyResponse>(
+        "/api/v1/mfa/verify-code",
+        {
+          code,
+          mfa_token: mfaToken,
+        },
+      );
       const { accessToken, refreshToken } = res.data.data;
+
+      if (!accessToken || !refreshToken) {
+        throw new Error("Verification did not return new tokens");
+      }
+
       await login(accessToken, refreshToken);
       toast.success("Verified");
       router.replace("/home");
     } catch (e: any) {
-      const message = e.response?.data?.message ?? "Invalid code";
+      const message = e.response?.data?.message ?? e.message ?? "Invalid code";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -75,12 +111,45 @@ export default function Mfa() {
    * Trigger a resend and start cooldown timer.
    * No-op when cooldown is active.
    */
-  const onResend = (): void => {
-    if (cooldown > 0) return;
-    setCooldown(30);
-    setCode("");
-    toast.info("New code sent (demo: 123456)");
+  const onResend = async (): Promise<void> => {
+    if (cooldown > 0 || loading) return;
+
+    if (!mfaToken) {
+      toast.error(
+        "Missing verification token. Please sign in again to request a new code.",
+      );
+      return;
+    }
+
+    try {
+      const res = await apiService.post<ResendResponse>(
+        "/api/v1/mfa/resend-code",
+        {
+          mfa_token: mfaToken,
+        },
+      );
+      const nextToken = res.data.data?.mfa_token;
+
+      if (!nextToken) {
+        throw new Error("Unable to retrieve a new verification token");
+      }
+
+      setMfaToken(nextToken);
+      setCode("");
+      setCooldown(30);
+      toast.info("New code sent");
+    } catch (e: any) {
+      const message =
+        e.response?.data?.message ?? e.message ?? "Unable to resend code";
+      toast.error(message);
+    }
   };
+
+  useEffect(() => {
+    if (typeof initialToken === "string") {
+      setMfaToken(initialToken);
+    }
+  }, [initialToken]);
 
   // Cooldown timer
   useEffect(() => {
