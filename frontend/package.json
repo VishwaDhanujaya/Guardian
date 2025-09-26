@@ -3,10 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "dev": "expo start -c",
-    "android": "expo start -c --android",
-    "ios": "expo start -c --ios",
-    "web": "expo start -c --web",
+    "dev": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
+    "android": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --android",
+    "ios": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --ios",
+    "web": "EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --web",
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {

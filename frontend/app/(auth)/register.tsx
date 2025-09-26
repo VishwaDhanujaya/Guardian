@@ -1,6 +1,6 @@
 // app/(auth)/register.tsx
 import { router } from "expo-router";
-import { useRef, useState, useContext } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, Keyboard, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { Lock, Mail, UserRound } from "lucide-react-native";
-import { AuthContext } from "@/context/AuthContext";
 import { apiService } from "@/services/apiService";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
@@ -30,7 +29,6 @@ export default function Register() {
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useContext(AuthContext);
 
   // Focus chain
   const lastNameRef = useRef<any>(null);
@@ -54,19 +52,17 @@ export default function Register() {
     if (!canSubmit || loading) return;
     try {
       setLoading(true);
-      const res = await apiService.post("/api/v1/auth/register", {
-        firstName: sanitize(firstName),
-        lastName: sanitize(lastName),
+      await apiService.post("/api/v1/auth/register", {
+        first_name: sanitize(firstName),
+        last_name: sanitize(lastName),
         username: sanitize(username),
         email: sanitize(email),
         password,
       });
-      const { accessToken, refreshToken } = res.data.data;
-      await login(accessToken, refreshToken);
-      toast.success("Welcome!");
-      router.replace("/home");
+      toast.success("Account created. Please sign in.");
+      router.replace("/login");
     } catch (e: any) {
-      const message = e.response?.data?.message ?? "Registration failed";
+      const message = e.response?.data?.message ?? e.message ?? "Registration failed";
       toast.error(message);
     } finally {
       setLoading(false);

@@ -98,6 +98,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         try {
           const response = await apiService.post<RefreshResponse>(
             '/api/v1/auth/refresh',
+            undefined,
+            refreshTokenSession
+              ? { headers: { 'refresh-token': refreshTokenSession } }
+              : undefined,
           );
 
           if (response.status === 200) {
@@ -112,7 +116,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       return false;
     },
-    [lastRefreshCheck, setAccessTokenSession, setRefreshTokenSession],
+    [
+      lastRefreshCheck,
+      refreshTokenSession,
+      setAccessTokenSession,
+      setRefreshTokenSession,
+    ],
   );
 
   const checkAuthed = useCallback(async () => {
