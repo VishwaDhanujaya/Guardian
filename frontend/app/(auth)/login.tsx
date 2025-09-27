@@ -20,6 +20,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import Logo from "@/assets/images/dark-logo.png";
 import { toast } from "@/components/toast";
+import { AppCard, AppScreen } from "@/components/app/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,7 +71,7 @@ export default function Login() {
 
   const formatOfficerId = (value: string): string => {
     const digits = extractOfficerDigits(value);
-    return digits.length > 0 ? `OF-${digits}` : "";
+    return `OF-${digits}`;
   };
 
   const officerDigits = extractOfficerDigits(identifier);
@@ -111,6 +112,15 @@ export default function Login() {
       useNativeDriver: true,
     }).start();
   }, [isOfficer, formSwitchAnim, roleAnim, textSwitchAnim]);
+
+  useEffect(() => {
+    setIdentifier((prev) => {
+      if (isOfficer) {
+        return formatOfficerId(prev);
+      }
+      return prev.replace(/^OF-/, "");
+    });
+  }, [isOfficer]);
 
   // Derived animated values
   const tabWidth = railW > 0 ? railW / 2 : 0;
@@ -182,39 +192,33 @@ export default function Login() {
   const IdentifierIcon = isOfficer ? IdCard : UserRound;
 
   return (
-    <KeyboardAwareScrollView
-      enableOnAndroid
-      keyboardShouldPersistTaps="handled"
-      extraScrollHeight={80}
-      onScrollBeginDrag={Keyboard.dismiss}
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF" }}
+    <AppScreen
+      scrollComponent={KeyboardAwareScrollView}
+      scrollViewProps={{
+        enableOnAndroid: true,
+        keyboardShouldPersistTaps: "handled",
+        extraScrollHeight: 80,
+        onScrollBeginDrag: Keyboard.dismiss,
+      }}
+      contentClassName="pb-10"
     >
-      <View className="flex-1 p-5">
-        {/* Header */}
-        <View className="flex-1 justify-center pt-10 pb-6">
-          <View className="items-center mb-5">
-            <Image
-              source={Logo}
-              style={{ width: 96, height: 96, borderRadius: 20 }}
-              resizeMode="contain"
-            />
-            <Text className="mt-3 text-3xl font-bold text-foreground">Guardian</Text>
-            <Text className="text-sm text-muted-foreground mt-1 text-center">
-              Sign in to continue
-            </Text>
-          </View>
+      <View className="items-center gap-2 pt-6">
+        <Image
+          source={Logo}
+          style={{ width: 96, height: 96, borderRadius: 20 }}
+          resizeMode="contain"
+        />
+        <Text className="text-3xl font-bold text-foreground">Guardian</Text>
+        <Text className="text-sm text-muted-foreground text-center">Sign in to continue</Text>
+      </View>
 
-          {/* Form */}
-          <Animated.View
-            className="bg-muted rounded-2xl border border-border p-4 gap-4"
-            style={{ opacity: formOpacity, transform: [{ translateY: formTranslateY }] }}
+      <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formTranslateY }] }} className="w-full">
+        <AppCard className="gap-5">
+          {/* Role switcher */}
+          <View
+            onLayout={(e) => setRailW(e.nativeEvent.layout.width)}
+            className="bg-background rounded-xl border border-border p-1 overflow-hidden"
           >
-            {/* Role switcher */}
-            <View
-              onLayout={(e) => setRailW(e.nativeEvent.layout.width)}
-              className="bg-background rounded-xl border border-border p-1 overflow-hidden"
-            >
               {tabWidth > 0 ? (
                 <Animated.View
                   pointerEvents="none"
@@ -280,6 +284,9 @@ export default function Login() {
                   className="bg-background h-12 rounded-xl pl-9"
                 />
               </View>
+              {isOfficer ? (
+                <Text className="text-[11px] text-muted-foreground">Officer IDs always start with OF-.</Text>
+              ) : null}
             </View>
 
             {/* Password input */}
@@ -341,25 +348,23 @@ export default function Login() {
                 <Text className="font-semibold text-primary-foreground">Sign in</Text>
               )}
             </Button>
-          </Animated.View>
+        </AppCard>
+      </Animated.View>
 
-          {/* Footer */}
-          <View className="items-center mt-4">
-            {!isOfficer ? (
-              <Button variant="link" onPress={() => router.push("/register")} className="h-auto p-0">
-                <Text className="text-sm text-primary">
-                  Don&apos;t have an account? <Text className="underline">Sign up</Text>
-                </Text>
-              </Button>
-            ) : (
-              <Text className="text-xs text-muted-foreground text-center">
-                Officer access is provisioned by your department. Contact your admin.
-              </Text>
-            )}
-          </View>
-        </View>
+      <View className="items-center">
+        {!isOfficer ? (
+          <Button variant="link" onPress={() => router.push("/register")} className="h-auto p-0">
+            <Text className="text-sm text-primary">
+              Don&apos;t have an account? <Text className="underline">Sign up</Text>
+            </Text>
+          </Button>
+        ) : (
+          <Text className="text-xs text-muted-foreground text-center">
+            Officer access is provisioned by your department. Contact your admin.
+          </Text>
+        )}
       </View>
-    </KeyboardAwareScrollView>
+    </AppScreen>
   );
 }
 

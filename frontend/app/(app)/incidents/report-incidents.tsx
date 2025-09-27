@@ -215,93 +215,113 @@ export default function ReportIncidents() {
       />
 
       <Animated.View style={animStyle} className="w-full">
-        <AppCard className="gap-6">
-          <SectionHeader
-            title="Incident details"
-            description="Provide as much context as you can — it helps responders act faster."
-          />
-
-          <View className="gap-6">
-            <View>
-              <Text className="mb-2 text-xs font-semibold text-muted-foreground">Category</Text>
-              <View className="flex-row flex-wrap gap-2">
-                <CategoryChip value="Accident" Icon={Car} />
-                <CategoryChip value="Theft" Icon={ShieldOff} />
-                <CategoryChip value="Hazard" Icon={AlertTriangle} />
-                <CategoryChip value="Other" Icon={MoreHorizontal} />
-              </View>
-            </View>
-
-            <View className="gap-2">
-              <Label nativeID="descLabel" className="text-xs font-semibold text-muted-foreground">
-                <Text className="text-xs text-muted-foreground">Description</Text>
-              </Label>
-              <View className="relative">
-                <NotebookPen size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 16 }} />
-                <Input
-                  aria-labelledby="descLabel"
-                  value={desc}
-                  onChangeText={onChangeDesc}
-                  onContentSizeChange={(e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
-                    const h = e?.nativeEvent?.contentSize?.height ?? 100;
-                    setDescHeight(Math.max(100, Math.min(h, 220)));
-                  }}
-                  placeholder="What happened?"
-                  className="rounded-2xl bg-background/60 pl-11"
-                  style={{ minHeight: 120, height: descHeight, paddingTop: 16, textAlignVertical: "top" }}
-                  multiline
-                  maxLength={DESC_MAX}
-                />
-              </View>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[11px] text-muted-foreground">Be as specific as possible.</Text>
-                <Text className={"text-[11px] font-medium " + (desc.length >= DESC_MAX - 20 ? "text-destructive" : "text-muted-foreground")}>
-                  {desc.length}/{DESC_MAX}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-center justify-between rounded-2xl border border-dashed border-border bg-muted/40 p-4">
-              <View className="flex-1 flex-row items-center gap-2">
-                <ImageIcon size={20} color="#0F172A" />
-                <View className="flex-1">
-                  <Text className="font-medium text-foreground">Attach photo (optional)</Text>
-                  <Text className="text-[11px] text-muted-foreground">Include a clear photo if you have one available.</Text>
-                </View>
-              </View>
-              <Button size="sm" variant="secondary" onPress={() => {}} className="h-10 rounded-lg px-3">
-                <View className="flex-row items-center gap-1">
-                  <FilePlus2 size={14} color="#0F172A" />
-                  <Text className="text-[12px] text-foreground">Choose</Text>
-                </View>
-              </Button>
-            </View>
-
-            <WitnessSection
-              witnesses={witnesses}
-              setWitnesses={setWitnesses}
-              nameRefs={nameRefs}
-              isValidPhone={isValidPhone}
-              formatPhoneDisplay={formatPhoneDisplay}
+        <AppCard className="gap-8">
+          <View className="gap-5">
+            <SectionHeader
+              title="Incident details"
+              description="Provide as much context as you can — it helps responders act faster."
             />
 
-            <View className="gap-2">
-              <Label nativeID="locLabel" className="text-xs font-semibold text-muted-foreground">
-                <Text className="text-xs text-muted-foreground">Location</Text>
-              </Label>
-              <View className="relative">
-                <MapPin size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 14 }} />
-                <Input
-                  aria-labelledby="locLabel"
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="e.g. Main St & 5th"
-                  className="h-12 rounded-2xl bg-background/60 pl-11"
-                  returnKeyType="next"
-                />
+            <View className="gap-6">
+              <View>
+                <Text className="mb-2 text-xs font-semibold text-muted-foreground">Category</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <CategoryChip value="Accident" Icon={Car} />
+                  <CategoryChip value="Theft" Icon={ShieldOff} />
+                  <CategoryChip value="Hazard" Icon={AlertTriangle} />
+                  <CategoryChip value="Other" Icon={MoreHorizontal} />
+                </View>
+              </View>
+
+              <View className="gap-2">
+                <Label nativeID="descLabel" className="text-xs font-semibold text-muted-foreground">
+                  <Text className="text-xs text-muted-foreground">Description</Text>
+                </Label>
+                <View className="relative">
+                  <NotebookPen size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 16 }} />
+                  <Input
+                    aria-labelledby="descLabel"
+                    value={desc}
+                    onChangeText={onChangeDesc}
+                    onContentSizeChange={(e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+                      const h = e?.nativeEvent?.contentSize?.height ?? 100;
+                      setDescHeight(Math.max(100, Math.min(h, 220)));
+                    }}
+                    placeholder="What happened?"
+                    className="rounded-2xl bg-background/60 pl-11"
+                    style={{ minHeight: 120, height: descHeight, paddingTop: 16, textAlignVertical: "top" }}
+                    multiline
+                    maxLength={DESC_MAX}
+                  />
+                </View>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-[11px] text-muted-foreground">Be as specific as possible.</Text>
+                  <Text
+                    className={
+                      "text-[11px] font-medium " +
+                      (desc.length >= DESC_MAX - 20 ? "text-destructive" : "text-muted-foreground")
+                    }
+                  >
+                    {desc.length}/{DESC_MAX}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="gap-2">
+                <Label nativeID="locLabel" className="text-xs font-semibold text-muted-foreground">
+                  <Text className="text-xs text-muted-foreground">Location</Text>
+                </Label>
+                <View className="relative">
+                  <MapPin size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 14 }} />
+                  <Input
+                    aria-labelledby="locLabel"
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="e.g. Main St & 5th"
+                    className="h-12 rounded-2xl bg-background/60 pl-11"
+                    returnKeyType="next"
+                  />
+                </View>
               </View>
             </View>
           </View>
+
+          <View className="h-px w-full bg-border/80" />
+
+          <View className="gap-4">
+            <SectionHeader
+              title="Attachments"
+              description="Include supporting media to help responders understand the situation."
+              trailing={
+                <Button size="sm" variant="secondary" onPress={() => {}} className="h-9 rounded-lg px-3">
+                  <View className="flex-row items-center gap-1">
+                    <FilePlus2 size={14} color="#0F172A" />
+                    <Text className="text-[12px] text-foreground">Choose</Text>
+                  </View>
+                </Button>
+              }
+            />
+
+            <View className="flex-row flex-wrap items-start gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-4">
+              <ImageIcon size={20} color="#0F172A" />
+              <View className="flex-1 gap-1">
+                <Text className="font-medium text-foreground">Attach photo (optional)</Text>
+                <Text className="text-[11px] text-muted-foreground">
+                  Include a clear photo if you have one available.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="h-px w-full bg-border/80" />
+
+          <WitnessSection
+            witnesses={witnesses}
+            setWitnesses={setWitnesses}
+            nameRefs={nameRefs}
+            isValidPhone={isValidPhone}
+            formatPhoneDisplay={formatPhoneDisplay}
+          />
 
           <Button
             onPress={onSubmit}
