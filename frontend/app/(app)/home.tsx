@@ -21,8 +21,6 @@ import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
-
-
 import {
   AlertTriangle,
   BellRing,
@@ -85,7 +83,6 @@ export default function Home() {
     profileLoading,
     refreshProfile,
   } = useContext(AuthContext);
-
   const role = useMemo<Role>(() => {
     if (params.role === 'officer') return 'officer';
     if (params.role === 'citizen') return 'citizen';
@@ -240,6 +237,10 @@ export default function Home() {
   // Pull-to-refresh (refresh profile and surface subtle motion)
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
+    if (!session) {
+      setRefreshing(false);
+      return;
+    }
     setRefreshing(true);
     refreshProfile()
       .catch(() => {
