@@ -240,6 +240,10 @@ export default function Home() {
   // Pull-to-refresh (refresh profile and surface subtle motion)
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
+    if (!session) {
+      setRefreshing(false);
+      return;
+    }
     setRefreshing(true);
     refreshProfile()
       .catch(() => {
