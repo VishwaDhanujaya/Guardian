@@ -495,22 +495,22 @@ export default function Home() {
                       <CardHeader title="Quick actions" tone="primary" />
                       <TileGrid
                         tiles={[
-                          { label: 'Report incident', icon: ShieldPlus, onPress: goIncidentsIndex },
+                          { label: 'Report Incident', icon: ShieldPlus, onPress: goIncidentsIndex },
                           {
-                            label: 'Lost & found',
+                            label: 'Lost & Found',
                             icon: PackageSearch,
                             onPress: goLostFoundCitizen,
                             variant: 'secondary',
                             count: counts.lostFound,
                           },
                           {
-                            label: 'My reports',
+                            label: 'My Reports',
                             icon: ClipboardList,
                             onPress: goMyReports,
-                            count: 1,
+                            count: counts.myReports,
                           },
                           {
-                            label: 'Safety alerts',
+                            label: 'Safety Alerts',
                             icon: BellRing,
                             onPress: goCitizenAlerts,
                             variant: 'secondary',
@@ -671,9 +671,9 @@ type Tile = {
 
 /** Responsive 2-column grid of action tiles. */
 const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => (
-  <View className="-mx-1 mt-3 flex-row flex-wrap">
+  <View className="-mx-2 mt-4 flex-row flex-wrap">
     {tiles.map((t, i) => (
-      <View key={i} className="mb-2 basis-1/2 px-1">
+      <View key={i} className="w-1/2 px-2 pb-3">
         <IconTileButton {...t} />
       </View>
     ))}
@@ -691,6 +691,7 @@ const IconTileButton: FC<Tile> = ({
   const isSecondary = variant === 'secondary';
   const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
   const circleTint = isSecondary ? '#E0F2F1' : '#E0EAFF';
+  const hasBadge = typeof count === 'number' && count > 0;
 
   return (
     <Pressable
@@ -698,10 +699,11 @@ const IconTileButton: FC<Tile> = ({
       android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
       className="active:opacity-95"
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-      <AppCard className="items-center gap-3 py-5">
-        {typeof count === 'number' && count > 0 ? (
-          <Pill label={String(count)} tone="primary" className="self-end" />
-        ) : null}
+      <AppCard
+        translucent={isSecondary}
+        className="relative h-full items-center justify-center gap-3 px-5 py-6"
+      >
+        {hasBadge ? <Pill label={String(count)} tone="primary" className="absolute right-4 top-4" /> : null}
         <View
           className="h-14 w-14 items-center justify-center rounded-2xl"
           style={{ backgroundColor: circleTint }}
@@ -890,8 +892,8 @@ const ChatbotWidget: FC<{
           onPress={onToggle}
           accessibilityRole="button"
           accessibilityLabel="Close chat"
-          className="h-9 w-9 items-center justify-center rounded-full bg-white"
-          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}
+          className="h-9 w-9 items-center justify-center rounded-full border border-border bg-white"
+          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: false }}
         >
           <X size={18} color="#0F172A" />
         </Pressable>

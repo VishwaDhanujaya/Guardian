@@ -21,6 +21,7 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { toast } from "@/components/toast";
+import { AppCard, AppScreen, ScreenHeader, SectionHeader } from "@/components/app/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,6 @@ import useMountAnimation from "@/hooks/useMountAnimation";
 import {
   AlertTriangle,
   Car,
-  ChevronLeft,
   ChevronRight,
   FilePlus2,
   Image as ImageIcon,
@@ -197,36 +197,33 @@ export default function ReportIncidents() {
   };
 
   return (
-    <KeyboardAwareScrollView
-      enableOnAndroid
-      keyboardShouldPersistTaps="handled"
-      extraScrollHeight={80}
-      onScrollBeginDrag={Keyboard.dismiss}
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF" }}
+    <AppScreen
+      scrollComponent={KeyboardAwareScrollView}
+      scrollViewProps={{
+        enableOnAndroid: true,
+        keyboardShouldPersistTaps: "handled",
+        extraScrollHeight: 80,
+        onScrollBeginDrag: Keyboard.dismiss,
+      }}
+      contentClassName="pb-6"
     >
-      <View className="flex-1 p-5">
-        <View className="pt-10 pb-6">
-          {/* Top bar */}
-          <View className="flex-row items-center justify-between mb-4">
-            <Pressable onPress={goBack} className="flex-row items-center gap-1 px-2 py-1 -ml-2">
-              <ChevronLeft size={18} color="#0F172A" />
-              <Text className="text-foreground">Back</Text>
-            </Pressable>
+      <ScreenHeader
+        title="Report Incident"
+        subtitle="Share what happened so we can route it to the right team."
+        icon={ShieldPlus}
+        onBack={goBack}
+      />
 
-            <View className="flex-row items-center gap-2">
-              <ShieldPlus size={18} color="#0F172A" />
-              <Text className="text-xl font-semibold text-foreground">Report incident</Text>
-            </View>
+      <Animated.View style={animStyle} className="w-full">
+        <AppCard className="gap-6">
+          <SectionHeader
+            title="Incident details"
+            description="Provide as much context as you can — it helps responders act faster."
+          />
 
-            <View style={{ width: 56 }} />
-          </View>
-
-          {/* Card */}
-          <Animated.View className="bg-muted rounded-2xl border border-border p-4 gap-4" style={animStyle}>
-            {/* Category */}
+          <View className="gap-6">
             <View>
-              <Text className="text-xs text-foreground mb-1">Category</Text>
+              <Text className="mb-2 text-xs font-semibold text-muted-foreground">Category</Text>
               <View className="flex-row flex-wrap gap-2">
                 <CategoryChip value="Accident" Icon={Car} />
                 <CategoryChip value="Theft" Icon={ShieldOff} />
@@ -235,13 +232,12 @@ export default function ReportIncidents() {
               </View>
             </View>
 
-            {/* Description */}
-            <View className="gap-1">
-              <Label nativeID="descLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Description</Text>
+            <View className="gap-2">
+              <Label nativeID="descLabel" className="text-xs font-semibold text-muted-foreground">
+                <Text className="text-xs text-muted-foreground">Description</Text>
               </Label>
               <View className="relative">
-                <NotebookPen size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
+                <NotebookPen size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 16 }} />
                 <Input
                   aria-labelledby="descLabel"
                   value={desc}
@@ -251,35 +247,36 @@ export default function ReportIncidents() {
                     setDescHeight(Math.max(100, Math.min(h, 220)));
                   }}
                   placeholder="What happened?"
-                  className="bg-background rounded-xl pl-9"
-                  style={{ minHeight: 100, height: descHeight, paddingTop: 14, textAlignVertical: "top" }}
+                  className="rounded-2xl bg-background/60 pl-11"
+                  style={{ minHeight: 120, height: descHeight, paddingTop: 16, textAlignVertical: "top" }}
                   multiline
                   maxLength={DESC_MAX}
                 />
               </View>
-              <View className="flex-row justify-between">
+              <View className="flex-row items-center justify-between">
                 <Text className="text-[11px] text-muted-foreground">Be as specific as possible.</Text>
-                <Text className={"text-[11px] " + (desc.length >= DESC_MAX - 20 ? "text-destructive" : "text-muted-foreground")}>
+                <Text className={"text-[11px] font-medium " + (desc.length >= DESC_MAX - 20 ? "text-destructive" : "text-muted-foreground")}>
                   {desc.length}/{DESC_MAX}
                 </Text>
               </View>
             </View>
 
-            {/* Attachment (stub) */}
-            <View className="bg-background rounded-xl border border-border p-3 flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <ImageIcon size={18} color="#0F172A" />
-                <Text className="text-foreground">Attach photo (optional)</Text>
+            <View className="flex-row items-center justify-between rounded-2xl border border-dashed border-border bg-muted/40 p-4">
+              <View className="flex-1 flex-row items-center gap-2">
+                <ImageIcon size={20} color="#0F172A" />
+                <View className="flex-1">
+                  <Text className="font-medium text-foreground">Attach photo (optional)</Text>
+                  <Text className="text-[11px] text-muted-foreground">Include a clear photo if you have one available.</Text>
+                </View>
               </View>
-              <Button size="sm" variant="secondary" onPress={() => { /* TODO: open picker */ }}>
+              <Button size="sm" variant="secondary" onPress={() => {}} className="h-10 rounded-lg px-3">
                 <View className="flex-row items-center gap-1">
                   <FilePlus2 size={14} color="#0F172A" />
-                  <Text className="text-foreground">Choose</Text>
+                  <Text className="text-[12px] text-foreground">Choose</Text>
                 </View>
               </Button>
             </View>
 
-            {/* Witnesses */}
             <WitnessSection
               witnesses={witnesses}
               setWitnesses={setWitnesses}
@@ -288,32 +285,38 @@ export default function ReportIncidents() {
               formatPhoneDisplay={formatPhoneDisplay}
             />
 
-            {/* Location */}
-            <View className="gap-1 mt-4">
-              <Label nativeID="locLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Location</Text>
+            <View className="gap-2">
+              <Label nativeID="locLabel" className="text-xs font-semibold text-muted-foreground">
+                <Text className="text-xs text-muted-foreground">Location</Text>
               </Label>
               <View className="relative">
-                <MapPin size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
+                <MapPin size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 14 }} />
                 <Input
                   aria-labelledby="locLabel"
                   value={location}
                   onChangeText={setLocation}
                   placeholder="e.g. Main St & 5th"
-                  className="bg-background h-12 rounded-xl pl-9"
+                  className="h-12 rounded-2xl bg-background/60 pl-11"
                   returnKeyType="next"
                 />
               </View>
             </View>
+          </View>
 
-            {/* Submit */}
-            <Button onPress={onSubmit} size="lg" variant="default" className="mt-1 h-12 rounded-xl" disabled={!canSubmit}>
-              <Text className="font-semibold text-primary-foreground">{submitting ? "Submitting…" : "Submit report"}</Text>
-            </Button>
-          </Animated.View>
-        </View>
-      </View>
-    </KeyboardAwareScrollView>
+          <Button
+            onPress={onSubmit}
+            size="lg"
+            variant="default"
+            className="h-12 rounded-2xl"
+            disabled={!canSubmit}
+          >
+            <Text className="font-semibold text-primary-foreground">
+              {submitting ? "Submitting…" : "Submit Report"}
+            </Text>
+          </Button>
+        </AppCard>
+      </Animated.View>
+    </AppScreen>
   );
 }
 
@@ -376,23 +379,35 @@ function WitnessSection({
   };
 
   return (
-    <View>
-      <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-xs text-foreground">Witnesses (optional)</Text>
-        <Button size="sm" variant="secondary" onPress={addWitness} className="h-8 px-2 rounded-lg" disabled={witnesses.length >= 5}>
-          <View className="flex-row items-center gap-1">
-            <UserPlus size={14} color="#0F172A" />
-            <Text className="text-[12px] text-foreground">Add witness</Text>
-          </View>
-        </Button>
-      </View>
+    <View className="gap-3">
+      <SectionHeader
+        title="Witnesses (optional)"
+        description="Add people we can reach out to for follow-up details."
+        trailing={
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={addWitness}
+            className="h-9 rounded-lg px-3"
+            disabled={witnesses.length >= 5}
+          >
+            <View className="flex-row items-center gap-1">
+              <UserPlus size={14} color="#0F172A" />
+              <Text className="text-[12px] text-foreground">Add Witness</Text>
+            </View>
+          </Button>
+        }
+      />
 
       {witnesses.length === 0 ? (
-        <View className="bg-background rounded-xl border border-border p-3 items-center">
-          <Text className="text-xs text-muted-foreground">No witnesses added.</Text>
+        <View className="items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 p-4">
+          <Text className="text-xs font-medium text-muted-foreground">No witnesses added yet.</Text>
+          <Text className="text-[11px] text-muted-foreground">
+            You can include up to five people who saw what happened.
+          </Text>
         </View>
       ) : (
-        <View className="gap-2">
+        <View className="gap-3">
           {witnesses.map((w) => {
             const nameOk = w.name.trim().length > 0;
             const phoneOk = isValidPhone(w.phone);
@@ -404,18 +419,18 @@ function WitnessSection({
                 <Pressable
                   key={w.id}
                   onPress={() => toggleExpanded(w.id, true)}
-                  className="bg-background rounded-xl border border-border px-3 py-3 flex-row items-center justify-between"
-                  android_ripple={{ color: "rgba(0,0,0,0.06)" }}
+                  className="flex-row items-center justify-between rounded-2xl border border-border bg-background px-3 py-3"
+                  android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: false }}
                 >
                   <View className="flex-row items-center gap-3 flex-1">
-                    <View className="w-8 h-8 rounded-full items-center justify-center bg-foreground/10">
+                    <View className="h-9 w-9 items-center justify-center rounded-full bg-foreground/10">
                       <UserRound size={18} color="#0F172A" />
                     </View>
                     <View className="flex-1">
                       <Text className="text-foreground">
                         {nameOk ? w.name : <Text className="text-muted-foreground">Unnamed</Text>}
                       </Text>
-                      <Text className={`text-xs mt-0.5 ${phoneOk && !duplicate ? "text-foreground" : "text-muted-foreground"}`}>
+                      <Text className={`mt-0.5 text-xs ${phoneOk && !duplicate ? "text-foreground" : "text-muted-foreground"}`}>
                         {w.phone ? formatPhoneDisplay(w.phone) : "Add phone"}
                         {duplicate ? <Text className="text-destructive">  • duplicate</Text> : null}
                       </Text>
@@ -427,30 +442,30 @@ function WitnessSection({
             }
 
             return (
-              <View key={w.id} className="bg-background rounded-xl border border-border p-3">
-                {/* Name */}
+              <View key={w.id} className="gap-3 rounded-2xl border border-border bg-background p-3">
                 <View className="gap-1">
-                  <Label nativeID={`wname-${w.id}`} className="text-[11px]">
-                    <Text className="text-[11px] text-foreground">Name</Text>
+                  <Label nativeID={`wname-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
+                    <Text className="text-[11px] text-muted-foreground">Name</Text>
                   </Label>
                   <View className="relative">
                     <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                     <Input
-                      ref={(r) => { nameRefs.current[w.id] = r; }}
+                      ref={(r) => {
+                        nameRefs.current[w.id] = r;
+                      }}
                       aria-labelledby={`wname-${w.id}`}
                       value={w.name}
                       onChangeText={(t) => setWitnessField(w.id, "name", t)}
                       placeholder="e.g. Jamie Lee"
-                      className="bg-background h-12 rounded-xl pl-9"
+                      className="h-12 rounded-2xl bg-background pl-9"
                       returnKeyType="next"
                     />
                   </View>
                 </View>
 
-                {/* Phone */}
-                <View className="gap-1 mt-2">
-                  <Label nativeID={`wphone-${w.id}`} className="text-[11px]">
-                    <Text className="text-[11px] text-foreground">Phone</Text>
+                <View className="gap-1">
+                  <Label nativeID={`wphone-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
+                    <Text className="text-[11px] text-muted-foreground">Phone</Text>
                   </Label>
                   <View className="relative">
                     <Phone size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
@@ -461,12 +476,12 @@ function WitnessSection({
                       placeholder="e.g. 0714404243"
                       keyboardType="phone-pad"
                       autoComplete="tel"
-                      className="bg-background h-12 rounded-xl pl-9 pr-10"
+                      className="h-12 rounded-2xl bg-background pl-9 pr-10"
                       maxLength={10}
                     />
                     <Pressable
                       onPress={() => removeWitness(w.id)}
-                      className="absolute right-1 top-1 h-10 w-10 rounded-full items-center justify-center"
+                      className="absolute right-1 top-1 h-10 w-10 items-center justify-center rounded-full"
                       android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: true }}
                     >
                       <Trash2 size={16} color="#0F172A" />
@@ -474,7 +489,7 @@ function WitnessSection({
                   </View>
 
                   {showError ? (
-                    <Text className="text-[11px] text-destructive mt-1">
+                    <Text className="mt-1 text-[11px] text-destructive">
                       {!nameOk
                         ? "Enter the witness name."
                         : duplicate
@@ -482,15 +497,15 @@ function WitnessSection({
                         : "Enter a valid phone (10 digits starting with 0)."}
                     </Text>
                   ) : (
-                    <Text className="text-[11px] text-muted-foreground mt-1">Format: 0XXXXXXXXX</Text>
+                    <Text className="mt-1 text-[11px] text-muted-foreground">Format: 0XXXXXXXXX</Text>
                   )}
                 </View>
 
-                <View className="flex-row items-center justify-between mt-3">
+                <View className="flex-row items-center justify-between">
                   <Button variant="link" onPress={() => onCancelEdit(w.id)} className="h-auto p-0">
                     <Text className="text-[12px] text-muted-foreground">Cancel</Text>
                   </Button>
-                  <Button size="sm" onPress={() => doneEdit(w.id)} className="px-3 h-9 rounded-lg">
+                  <Button size="sm" onPress={() => doneEdit(w.id)} className="h-9 rounded-lg px-3">
                     <Text className="text-primary-foreground">Done</Text>
                   </Button>
                 </View>
@@ -500,12 +515,12 @@ function WitnessSection({
         </View>
       )}
 
-      <View className="mt-2">
+      <View className="gap-1">
         {witnesses.length >= 5 ? (
           <Text className="text-[11px] text-muted-foreground">You can add up to 5 witnesses.</Text>
         ) : null}
         {hasDuplicatePhones ? (
-          <Text className="text-[11px] text-destructive mt-1">Duplicate witness phones detected.</Text>
+          <Text className="text-[11px] text-destructive">Duplicate witness phones detected.</Text>
         ) : null}
       </View>
     </View>
