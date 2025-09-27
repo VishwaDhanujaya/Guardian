@@ -1,13 +1,6 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  Modal,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Animated, Modal, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { toast } from "@/components/toast";
@@ -37,6 +30,7 @@ export default function CitizenLostFound() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [search, setSearch] = useState("");
   const [openForm, setOpenForm] = useState(false);
+  const openReportForm = useCallback(() => setOpenForm(true), []);
 
   useEffect(() => {
     fetchFoundItems()
@@ -115,6 +109,7 @@ export default function CitizenLostFound() {
       keyboardShouldPersistTaps="handled"
       extraScrollHeight={120}
       style={{ flex: 1, backgroundColor: "#fff" }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 160 }}
     >
       <View className="flex-1 p-5">
         {/* Top bar */}
@@ -130,24 +125,70 @@ export default function CitizenLostFound() {
           <View style={{ width: 56 }} />
         </View>
         
-        <Animated.View className="bg-muted rounded-md border border-border p-4 shadow-sm" style={animStyle}>
-          <View className="relative mb-4">
-            <SearchIcon
-              size={16}
-              color="#94A3B8"
-              style={{ position: "absolute", left: 12, top: 10 }}
-            />
+        <Animated.View
+          className="mb-5 overflow-hidden rounded-3xl border border-primary/10 bg-primary/5 shadow-xl shadow-primary/20"
+          style={animStyle}
+        >
+          <Pressable
+            onPress={openReportForm}
+            className="flex-row items-center justify-between rounded-3xl bg-white/80 px-5 py-6 active:opacity-95"
+          >
+            <View className="flex-1 gap-1 pr-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-primary">
+                Lost something?
+              </Text>
+              <Text className="text-xl font-semibold text-foreground">Report it in seconds</Text>
+              <Text className="text-xs text-muted-foreground">
+                Tap to open the form and we&apos;ll help spread the word across the community.
+              </Text>
+            </View>
+            <Animated.View className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
+              <Plus size={24} color="#FFFFFF" />
+            </Animated.View>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View
+          className="rounded-3xl border border-border/60 bg-white p-5 shadow-lg shadow-black/10"
+          style={animStyle}
+        >
+          <View className="mb-4 flex-row items-center justify-between">
+            <View>
+              <Text className="text-lg font-semibold text-foreground">Found items</Text>
+              <Text className="text-xs text-muted-foreground">See what&apos;s been handed in recently</Text>
+            </View>
+            <View className="flex-row items-center gap-2 rounded-full bg-muted px-3 py-1">
+              <PackageSearch size={14} color="#0F172A" />
+              <Text className="text-[12px] text-muted-foreground">{foundItems.length}</Text>
+            </View>
+          </View>
+
+          <View className="relative mb-5">
+            <SearchIcon size={16} color="#64748B" style={{ position: "absolute", left: 12, top: 12 }} />
             <Input
               value={search}
               onChangeText={setSearch}
               placeholder="Search found items"
-              className="bg-background h-10 rounded-md pl-9 font-sans"
+              className="h-11 rounded-2xl bg-muted/60 pl-10 font-sans"
             />
           </View>
 
-          <ScrollView>
+          <View className="gap-3">
             {loadingItems ? (
-              <ActivityIndicator className="mt-2" color="#000000" />
+              <View className="items-center justify-center gap-3 py-10">
+                <ActivityIndicator color="#0F172A" />
+                <Text className="text-xs text-muted-foreground">Loading latest items…</Text>
+              </View>
+            ) : filteredItems.length === 0 ? (
+              <View className="items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-background py-12">
+                <View className="h-14 w-14 items-center justify-center rounded-full bg-muted">
+                  <PackageSearch size={22} color="#0F172A" />
+                </View>
+                <Text className="font-semibold text-foreground">No items found</Text>
+                <Text className="px-6 text-center text-xs text-muted-foreground">
+                  Try adjusting your search or check back in a little while.
+                </Text>
+              </View>
             ) : (
               filteredItems.map((f) => (
                 <Pressable
@@ -155,9 +196,10 @@ export default function CitizenLostFound() {
                   onPress={() =>
                     router.push({ pathname: "/lost-found/view", params: { id: f.id, type: "found", role: "citizen" } })
                   }
-                  className="bg-background rounded-md border border-border px-3 py-3 mb-2 shadow-sm active:opacity-80"
+                  className="rounded-2xl border border-border/60 bg-white px-4 py-4 shadow-md shadow-black/10 active:opacity-90"
+                  style={{ elevation: 3 }}
                 >
-                  <View className="flex-row items-center gap-2 mb-1">
+                  <View className="mb-1 flex-row items-center gap-2">
                     <PackageSearch size={16} color="#000000" />
                     <Text className="text-foreground">{f.title}</Text>
                   </View>
@@ -165,31 +207,30 @@ export default function CitizenLostFound() {
                 </Pressable>
               ))
             )}
-          </ScrollView>
+          </View>
         </Animated.View>
-
-        <Pressable
-          onPress={() => setOpenForm(true)}
-          className="absolute bottom-8 right-6 flex-row items-center gap-2 rounded-full bg-black px-5 py-3 shadow-md active:opacity-80"
-          android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: false }}
-        >
-          <Plus size={20} color="#FFFFFF" />
-          <Text className="font-semibold text-white">Report lost item</Text>
-        </Pressable>
 
         <Modal visible={openForm} animationType="slide" onRequestClose={() => setOpenForm(false)}>
           <KeyboardAwareScrollView
             enableOnAndroid
             keyboardShouldPersistTaps="handled"
             extraScrollHeight={120}
-            style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-            contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF" }}
+            style={{ flex: 1, backgroundColor: "#F8FAFC" }}
+            contentContainerStyle={{ flexGrow: 1, padding: 24 }}
           >
-            <View className="flex-1 p-5">
-              <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-xl font-semibold text-foreground">Report lost item</Text>
-                <Pressable onPress={() => setOpenForm(false)} hitSlop={8} className="rounded-md active:opacity-80">
-                  <X size={20} color="#000000" />
+            <Animated.View
+              className="flex-1 rounded-3xl border border-border/50 bg-white p-6 shadow-2xl shadow-black/15"
+              style={animStyle}
+            >
+              <View className="mb-4 flex-row items-center justify-between">
+                <View className="flex-1 pr-6">
+                  <Text className="text-[12px] font-semibold uppercase tracking-[1.1px] text-primary">
+                    Report lost item
+                  </Text>
+                  <Text className="text-2xl font-semibold leading-snug text-foreground">Tell us what went missing</Text>
+                </View>
+                <Pressable onPress={() => setOpenForm(false)} hitSlop={8} className="rounded-full bg-muted/70 p-2 active:opacity-80">
+                  <X size={18} color="#0F172A" />
                 </Pressable>
               </View>
               <View className="gap-4">
@@ -225,18 +266,18 @@ export default function CitizenLostFound() {
                   <Label>Longitude*</Label>
                   <Input value={longitude} onChangeText={setLongitude} keyboardType="numeric" />
                 </View>
-                <Button onPress={submitLost} className="mt-2 h-11 rounded-lg" disabled={submitting}>
+                <Button onPress={submitLost} className="mt-2 h-12 rounded-full shadow-lg shadow-primary/30" disabled={submitting}>
                   {submitting ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <View className="flex-row items-center justify-center">
                       <Plus size={16} color="#fff" />
-                      <Text className="text-primary-foreground ml-1">Submit</Text>
+                      <Text className="ml-1 text-primary-foreground">Submit</Text>
                     </View>
                   )}
                 </Button>
               </View>
-            </View>
+            </Animated.View>
           </KeyboardAwareScrollView>
         </Modal>
       </View>
