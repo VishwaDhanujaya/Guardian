@@ -128,6 +128,39 @@ function mapNote(note: any): Note {
 }
 
 /**
+ * Auth / Profile helpers
+ */
+export type Profile = {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  isOfficer: boolean;
+};
+
+export async function fetchProfile(): Promise<Profile> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>("/api/v1/auth/profile"),
+  );
+
+  const firstName = data?.first_name?.trim?.() ?? "";
+  const lastName = data?.last_name?.trim?.() ?? "";
+  const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  return {
+    id: toStringId(data?.id),
+    username: data?.username ?? "",
+    email: data?.email ?? "",
+    firstName,
+    lastName,
+    name: combined || data?.username?.trim?.() || "User",
+    isOfficer: Boolean(data?.is_officer),
+  };
+}
+
+/**
  * Alerts
  */
 export type AlertDraft = {

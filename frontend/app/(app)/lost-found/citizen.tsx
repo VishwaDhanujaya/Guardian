@@ -1,13 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  Modal,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import { ActivityIndicator, Animated, Modal, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { toast } from "@/components/toast";
@@ -115,6 +108,7 @@ export default function CitizenLostFound() {
       keyboardShouldPersistTaps="handled"
       extraScrollHeight={120}
       style={{ flex: 1, backgroundColor: "#fff" }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 160 }}
     >
       <View className="flex-1 p-5">
         {/* Top bar */}
@@ -145,9 +139,22 @@ export default function CitizenLostFound() {
             />
           </View>
 
-          <ScrollView>
+          <View className="gap-2">
             {loadingItems ? (
-              <ActivityIndicator className="mt-2" color="#000000" />
+              <View className="items-center justify-center gap-2 py-6">
+                <ActivityIndicator color="#000000" />
+                <Text className="text-xs text-muted-foreground">Loading latest items…</Text>
+              </View>
+            ) : filteredItems.length === 0 ? (
+              <View className="items-center justify-center gap-2 rounded-md border border-dashed border-border bg-background py-10">
+                <View className="h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <PackageSearch size={20} color="#0F172A" />
+                </View>
+                <Text className="font-semibold text-foreground">No items found</Text>
+                <Text className="px-6 text-center text-xs text-muted-foreground">
+                  Try adjusting your search or check back in a little while.
+                </Text>
+              </View>
             ) : (
               filteredItems.map((f) => (
                 <Pressable
@@ -155,9 +162,9 @@ export default function CitizenLostFound() {
                   onPress={() =>
                     router.push({ pathname: "/lost-found/view", params: { id: f.id, type: "found", role: "citizen" } })
                   }
-                  className="bg-background rounded-md border border-border px-3 py-3 mb-2 shadow-sm active:opacity-80"
+                  className="bg-background rounded-md border border-border px-3 py-3 shadow-sm active:opacity-80"
                 >
-                  <View className="flex-row items-center gap-2 mb-1">
+                  <View className="mb-1 flex-row items-center gap-2">
                     <PackageSearch size={16} color="#000000" />
                     <Text className="text-foreground">{f.title}</Text>
                   </View>
@@ -165,17 +172,22 @@ export default function CitizenLostFound() {
                 </Pressable>
               ))
             )}
-          </ScrollView>
+          </View>
         </Animated.View>
 
-        <Pressable
-          onPress={() => setOpenForm(true)}
-          className="absolute bottom-8 right-6 flex-row items-center gap-2 rounded-full bg-black px-5 py-3 shadow-md active:opacity-80"
-          android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: false }}
-        >
-          <Plus size={20} color="#FFFFFF" />
-          <Text className="font-semibold text-white">Report lost item</Text>
-        </Pressable>
+        <View className="absolute bottom-10 right-6 items-center gap-1">
+          <Button
+            onPress={() => setOpenForm(true)}
+            size="icon"
+            className="h-14 w-14 rounded-full shadow-lg shadow-black/20"
+            style={{ elevation: 6 }}
+            accessibilityLabel="Report lost item"
+            accessibilityHint="Open the form to report a lost possession"
+          >
+            <Plus size={24} color="#FFFFFF" />
+          </Button>
+          <Text className="text-xs font-medium text-muted-foreground">Report lost item</Text>
+        </View>
 
         <Modal visible={openForm} animationType="slide" onRequestClose={() => setOpenForm(false)}>
           <KeyboardAwareScrollView

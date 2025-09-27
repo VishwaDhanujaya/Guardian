@@ -2,6 +2,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -26,8 +27,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { fetchProfile } from '@/lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthContext } from '@/context/AuthContext';
+import { fetchProfile, type Profile } from '@/lib/api';
 
 
 import {
@@ -82,14 +83,21 @@ const TONE_BG_FAINT: Record<Tone, string> = {
  * Role-aware dashboard screen.
  * - Renders citizen/officer home with mock data and subtle entrance animations.
  * - Provides quick navigation to incidents flows and common actions.
- * - NOTE: Replace hardcoded “Alex” with profile data when available.
+ * - Pulls authenticated profile details to personalise the greeting.
  */
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
-  const role: Role = params.role === 'officer' ? 'officer' : 'citizen';
+  const { session, isOfficer: officerFromContext } = useContext(AuthContext);
 
-  const [profile, setProfile] = useState<{ name: string } | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const role = useMemo<Role>(() => {
+    if (params.role === 'officer') return 'officer';
+    if (params.role === 'citizen') return 'citizen';
+    if (profile?.isOfficer) return 'officer';
+    return officerFromContext ? 'officer' : 'citizen';
+  }, [officerFromContext, params.role, profile?.isOfficer]);
 
   // Greeting + date (local)
   const now = new Date();
@@ -99,6 +107,11 @@ export default function Home() {
     month: 'short',
     day: 'numeric',
   });
+
+  const displayName = useMemo(() => {
+    if (!profile) return 'User';
+    return profile.name?.trim?.() || profile.username || 'User';
+  }, [profile]);
 
   // Overview (mock) — ONLY pending + ongoing
   const overview = useMemo(() => ({ pendingReports: 5, ongoingReports: 7 }), []);
@@ -228,31 +241,60 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
 
-  // Pull-to-refresh (mock)
+  // Pull-to-refresh (refresh profile and surface subtle motion)
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
+    if (!session) {
+      setRefreshing(false);
+      return;
+    }
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    setProfileLoading(true);
+    fetchProfile()
+      .then((data) => {
+        setProfile(data);
+      })
+      .catch(() => {
+        toast.error('Failed to refresh profile');
+      })
+      .finally(() => {
+        setProfileLoading(false);
+        setRefreshing(false);
+      });
+  }, [session]);
 
   const onSignOut = () => router.replace('/login');
 
   useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem('authToken').then((token: string | null) => {
-      fetchProfile(token ?? '', role)
-        .then((data) => {
-          if (mounted) setProfile(data);
-        })
-        .catch(() => toast.error('Failed to load profile'))
-        .finally(() => {
-          if (mounted) setProfileLoading(false);
-        });
-    });
+    let active = true;
+    if (!session) {
+      setProfile(null);
+      setProfileLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setProfileLoading(true);
+    fetchProfile()
+      .then((data) => {
+        if (!active) return;
+        setProfile(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setProfile(null);
+        toast.error('Failed to load profile');
+      })
+      .finally(() => {
+        if (!active) return;
+        setProfileLoading(false);
+      });
+
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, [role]);
+  }, [session]);
 
   // KPI trends (optional visuals kept, values illustrative)
   const trends = {
@@ -353,17 +395,18 @@ export default function Home() {
                 ) : null}
 
                 <View className="mt-3 rounded-2xl border border-border bg-primary/5 px-4 py-3">
-                  <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-start justify-between">
                     <View className="flex-1">
-                      <Text className="text-base text-foreground">
-                        {greeting},{' '}
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-base text-foreground">
+                          {greeting},{' '}
+                          <Text className="font-semibold">{displayName}</Text>
+                        </Text>
                         {profileLoading ? (
                           <ActivityIndicator size="small" color="#0F172A" />
-                        ) : (
-                          <Text className="font-semibold">{profile?.name ?? 'User'}</Text>
-                        )}
-                      </Text>
-                      <View className="mt-0.5 flex-row items-center gap-2">
+                        ) : null}
+                      </View>
+                      <View className="mt-1 flex-row items-center gap-2">
                         <CalendarDays size={14} color="#0F172A" />
                         <Text className="text-xs text-muted-foreground">{dateStr}</Text>
                       </View>
