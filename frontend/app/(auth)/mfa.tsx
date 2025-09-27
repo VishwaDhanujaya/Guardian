@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-import Logo from "@/assets/images/icon.png";
+import Logo from "@/assets/images/dark-logo.png";
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

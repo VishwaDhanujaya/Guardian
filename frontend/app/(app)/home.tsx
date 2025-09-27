@@ -2,6 +2,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -10,24 +11,16 @@ import {
   type FC,
   type ReactNode,
 } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, RefreshControl, View } from 'react-native';
 
+import { AppCard, AppScreen, Pill, SectionHeader, ScreenHeader } from '@/components/app/shell';
 import { toast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { fetchProfile } from '@/lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { cn } from '@/lib/utils';
+import { AuthContext } from '@/context/AuthContext';
 
 
 import {
@@ -82,14 +75,25 @@ const TONE_BG_FAINT: Record<Tone, string> = {
  * Role-aware dashboard screen.
  * - Renders citizen/officer home with mock data and subtle entrance animations.
  * - Provides quick navigation to incidents flows and common actions.
- * - NOTE: Replace hardcoded “Alex” with profile data when available.
+ * - Pulls authenticated profile details to personalise the greeting.
  */
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
-  const role: Role = params.role === 'officer' ? 'officer' : 'citizen';
+  const {
+    isOfficer: officerFromContext,
+    profile,
+    profileLoading,
+    refreshProfile,
+  } = useContext(AuthContext);
 
-  const [profile, setProfile] = useState<{ name: string } | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const role = useMemo<Role>(() => {
+    if (params.role === 'officer') return 'officer';
+    if (params.role === 'citizen') return 'citizen';
+    if (profile?.isOfficer) return 'officer';
+    return officerFromContext ? 'officer' : 'citizen';
+  }, [officerFromContext, params.role, profile?.isOfficer]);
+
+  const roleLabel = role === 'officer' ? 'Officer' : 'Citizen';
 
   // Greeting + date (local)
   const now = new Date();
@@ -99,6 +103,11 @@ export default function Home() {
     month: 'short',
     day: 'numeric',
   });
+
+  const displayName = useMemo(() => {
+    if (!profile) return 'neighbor';
+    return profile.name?.trim?.() || profile.username || 'neighbor';
+  }, [profile]);
 
   // Overview (mock) — ONLY pending + ongoing
   const overview = useMemo(() => ({ pendingReports: 5, ongoingReports: 7 }), []);
@@ -228,31 +237,27 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
 
-  // Pull-to-refresh (mock)
+  // Pull-to-refresh (refresh profile and surface subtle motion)
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    refreshProfile()
+      .catch(() => {
+        toast.error('Failed to refresh profile');
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, [refreshProfile]);
 
   const onSignOut = () => router.replace('/login');
 
   useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem('authToken').then((token: string | null) => {
-      fetchProfile(token ?? '', role)
-        .then((data) => {
-          if (mounted) setProfile(data);
-        })
-        .catch(() => toast.error('Failed to load profile'))
-        .finally(() => {
-          if (mounted) setProfileLoading(false);
-        });
+    if (profile || profileLoading) return;
+    refreshProfile().catch(() => {
+      toast.error('Failed to load profile');
     });
-    return () => {
-      mounted = false;
-    };
-  }, [role]);
+  }, [profile, profileLoading, refreshProfile]);
 
   // KPI trends (optional visuals kept, values illustrative)
   const trends = {
@@ -315,74 +320,76 @@ export default function Home() {
   const goMyReports = () => router.push({ pathname: '/incidents/my-reports', params: { role } });
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
-      style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <View className="flex-1">
-        <ScrollView
-          className="flex-1"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{
-            padding: 20,
-            paddingBottom: role === 'citizen' ? 160 : 48,
-            flexGrow: 1,
-            backgroundColor: '#FFFFFF',
-          }}
-          keyboardShouldPersistTaps="handled">
-          <View className="flex-1 justify-between gap-6">
-            {/* Header + hero */}
-            <Animated.View style={animStyle(headerAnim)}>
-              <View className="pt-10">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-2">
-                    <LayoutDashboard size={26} color="#0F172A" />
-                    <Text className="text-2xl font-bold text-foreground">Dashboard</Text>
-                  </View>
-                  <View className="rounded-full bg-primary/10 px-3 py-1">
-                    <Text className="text-xs capitalize text-primary">{role}</Text>
-                  </View>
-                </View>
+    <AppScreen
+      scrollViewProps={{
+        refreshControl: <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />,
+        keyboardShouldPersistTaps: 'handled',
+      }}
+      contentClassName="flex-1 gap-6"
+      floatingAction={
+        role === 'citizen' ? (
+          <ChatbotWidget
+            open={chatOpen}
+            onToggle={() => setChatOpen((v) => !v)}
+            message={chatMessage}
+            setMessage={setChatMessage}
+          />
+        ) : undefined
+      }
+    >
+      {/* Header + hero */}
+      <Animated.View style={animStyle(headerAnim)} className="gap-4">
+          <ScreenHeader
+            title="Dashboard"
+            subtitle={dateStr}
+            icon={LayoutDashboard}
+            action={<Pill tone="primary" label={roleLabel} />}
+          />
 
-                {showBanner ? (
-                  <View className="mt-3 flex-row items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2">
-                    <AlertTriangle size={16} color="#DC2626" />
-                    <Text className="text-[13px] text-destructive">
-                      Is it an emergency? Call 119 in emergency situations
-                    </Text>
+              {showBanner ? (
+                <AppCard translucent className="flex-row items-center gap-3 border border-destructive/30">
+                  <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                    <AlertTriangle size={18} color="#B91C1C" />
                   </View>
-                ) : null}
+                  <Text className="flex-1 text-[13px] text-destructive">
+                    If this is an emergency, please call 119 immediately.
+                  </Text>
+                </AppCard>
+              ) : null}
 
-                <View className="mt-3 rounded-2xl border border-border bg-primary/5 px-4 py-3">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className="text-base text-foreground">
-                        {greeting},{' '}
-                        {profileLoading ? (
-                          <ActivityIndicator size="small" color="#0F172A" />
-                        ) : (
-                          <Text className="font-semibold">{profile?.name ?? 'User'}</Text>
-                        )}
-                      </Text>
-                      <View className="mt-0.5 flex-row items-center gap-2">
-                        <CalendarDays size={14} color="#0F172A" />
-                        <Text className="text-xs text-muted-foreground">{dateStr}</Text>
+              <AppCard translucent className="gap-4">
+                <SectionHeader
+                  eyebrow="Today"
+                  title={`${greeting}, ${displayName}`}
+                  description="Here’s what’s happening around your community."
+                  trailing={
+                    <View className="flex-row items-center gap-2">
+                      {profileLoading ? <ActivityIndicator size="small" color="#0F172A" /> : null}
+                      <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <SunMedium size={20} color="#0F172A" />
                       </View>
                     </View>
-                    <View className="h-9 w-9 items-center justify-center rounded-full bg-accent/20">
-                      <SunMedium size={18} color="#0F172A" />
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </Animated.View>
+                  }
+                />
 
-            {/* Main sections */}
-            <View className="gap-6">
-              {role === 'officer' ? (
-                <>
-                  <Animated.View style={animStyle(sectionAnims[0])}>
-                    <Card>
-                      <CardHeader title="Overview" tone="ring" />
+                <View className="flex-row items-center gap-2 rounded-full bg-white/70 px-3 py-1">
+                  <CalendarDays size={14} color="#0F172A" />
+                  <Text className="text-xs font-medium text-muted-foreground">{dateStr}</Text>
+                </View>
+
+                <Text className="text-sm text-muted-foreground">
+                  Your dashboard adapts for the {roleLabel.toLowerCase()} experience.
+                </Text>
+              </AppCard>
+      </Animated.View>
+
+      {/* Main sections */}
+      <View className="gap-6">
+          {role === 'officer' ? (
+            <>
+              <Animated.View style={animStyle(sectionAnims[0])}>
+                <Card>
+                  <CardHeader title="Overview" tone="ring" />
                       <View className="mt-3 flex-row gap-3">
                         <Kpi
                           label="Pending reports"
@@ -475,12 +482,12 @@ export default function Home() {
                         onItemPress={goManageAlerts}
                       />
                     </Card>
-                  </Animated.View>
-                </>
-              ) : (
-                <>
-                  <Animated.View style={animStyle(sectionAnims[0])}>
-                    <Card>
+              </Animated.View>
+            </>
+          ) : (
+            <>
+              <Animated.View style={animStyle(sectionAnims[0])}>
+                <Card>
                       <CardHeader title="Quick actions" tone="primary" />
                       <TileGrid
                         tiles={[
@@ -547,29 +554,17 @@ export default function Home() {
                         emptyTone="ring"
                       />
                     </Card>
-                  </Animated.View>
-                </>
-              )}
-            </View>
-
-            <View>
-              <Button onPress={onSignOut} size="lg" className="h-12 rounded-xl">
-                <Text className="font-semibold text-primary-foreground">Sign out</Text>
-              </Button>
-            </View>
-          </View>
-        </ScrollView>
-
-        {role === 'citizen' ? (
-          <ChatbotWidget
-            open={chatOpen}
-            onToggle={() => setChatOpen((v) => !v)}
-            message={chatMessage}
-            setMessage={setChatMessage}
-          />
-        ) : null}
+              </Animated.View>
+            </>
+          )}
       </View>
-    </KeyboardAvoidingView>
+
+      <View>
+        <Button onPress={onSignOut} size="lg" className="h-12 rounded-xl">
+          <Text className="font-semibold text-primary-foreground">Sign out</Text>
+        </Button>
+      </View>
+    </AppScreen>
   );
 }
 
@@ -586,49 +581,46 @@ function getGreeting(hour: number): 'Good morning' | 'Good afternoon' | 'Good ev
 /* -------------------- UI Partials -------------------- */
 
 /** Card container with standard padding, border, and rounded corners. */
-const Card: FC<{ children: ReactNode }> = ({ children }) => (
-  <View className="rounded-2xl border border-border bg-muted p-5">{children}</View>
-);
+const Card: FC<{ children: ReactNode }> = ({ children }) => <AppCard className="gap-4">{children}</AppCard>;
 
 /**
  * Section header with title, optional action, and tone bar.
  */
 const CardHeader: FC<{
   title: string;
+  subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
   tone?: Tone;
-}> = ({ title, actionLabel, onAction, tone = 'foreground' }) => (
-  <View>
-    <View className="flex-row items-center justify-between">
-      <Text className="text-lg font-semibold text-foreground">{title}</Text>
-      {actionLabel ? (
-        <Pressable
-          onPress={onAction}
-          className="flex-row items-center gap-1"
-          android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
-          <Text className="text-primary">{actionLabel}</Text>
-          <ChevronRight size={14} color="#2563EB" />
-        </Pressable>
-      ) : null}
+  icon?: IconType;
+}> = ({ title, subtitle, actionLabel, onAction, tone = 'foreground', icon: IconCmp = Inbox }) => (
+  <View className="flex-row items-start justify-between gap-3">
+    <View className="flex-row flex-1 items-center gap-3">
+      <View className={`h-11 w-11 items-center justify-center rounded-2xl ${TONE_BG_FAINT[tone]}`}>
+        <IconCmp size={20} color="#0F172A" />
+      </View>
+      <View className="flex-1 gap-1">
+        <Text className="text-lg font-semibold text-foreground">{title}</Text>
+        {subtitle ? <Text className="text-xs text-muted-foreground">{subtitle}</Text> : null}
+      </View>
     </View>
-    <View className={`mt-2 h-1 w-16 rounded-full ${TONE_BG[tone]}`} />
+    {actionLabel ? (
+      <Pressable
+        onPress={onAction}
+        className="flex-row items-center gap-1 rounded-full bg-white/70 px-3 py-1"
+        android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
+        <Text className="text-[12px] font-semibold text-primary">{actionLabel}</Text>
+        <ChevronRight size={14} color="#2563EB" />
+      </Pressable>
+    ) : null}
   </View>
 );
 
 /** Compact trend chip (up/down + %). */
-const TrendChip: FC<{ dir: 'up' | 'down'; pct: number; tone: Tone }> = ({
-  dir,
-  pct,
-  tone,
-}) => (
-  <View className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${TONE_BG_FAINT[tone]}`}>
-    {dir === 'up' ? (
-      <TrendingUp size={12} color="#0F172A" />
-    ) : (
-      <TrendingDown size={12} color="#0F172A" />
-    )}
-    <Text className={`text-[11px] ${TONE_TEXT[tone]}`}>
+const TrendChip: FC<{ dir: 'up' | 'down'; pct: number; tone: Tone }> = ({ dir, pct, tone }) => (
+  <View className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${TONE_BG_FAINT[tone]}`}>
+    {dir === 'up' ? <TrendingUp size={14} color="#0F172A" /> : <TrendingDown size={14} color="#0F172A" />}
+    <Text className={`text-[12px] font-medium ${TONE_TEXT[tone]}`}>
       {dir === 'up' ? '+' : '-'}
       {pct}%
     </Text>
@@ -641,27 +633,29 @@ const Kpi: FC<{
   value: number | string;
   tone?: Tone;
   trend?: { dir: 'up' | 'down'; pct: number; tone: Tone; progress?: number };
-}> = ({ label, value, tone = 'foreground', trend }) => (
-  <View className="flex-1 overflow-hidden rounded-xl border border-border bg-background p-4">
-    <View className={`mb-2 h-1.5 rounded-full ${TONE_BG[tone]}`} />
-    <View className="flex-row items-end justify-between">
-      <Text className="text-3xl font-bold text-foreground">{String(value)}</Text>
-      {trend ? <TrendChip dir={trend.dir} pct={trend.pct} tone={trend.tone} /> : null}
-    </View>
-    <Text className="mt-0.5 text-xs text-muted-foreground">{label}</Text>
-    {trend?.progress != null ? (
-      <View className="mt-2">
-        <View className="h-2 overflow-hidden rounded-full bg-primary/10">
-          <View
-            style={{ width: `${Math.max(0, Math.min(100, trend.progress))}%` }}
-            className="h-2 rounded-full bg-primary"
-          />
-        </View>
-        <Text className="mt-1 text-[11px] text-muted-foreground">{trend.progress}% complete</Text>
+}> = ({ label, value, tone = 'foreground', trend }) => {
+  const progress = trend?.progress;
+  const clamped = progress == null ? null : Math.max(0, Math.min(100, progress));
+
+  return (
+    <AppCard translucent className="flex-1 gap-3">
+      <View className={`h-1 w-12 rounded-full ${TONE_BG[tone]}`} />
+      <View className="flex-row items-end justify-between">
+        <Text className="text-3xl font-bold text-foreground">{String(value)}</Text>
+        {trend ? <TrendChip dir={trend.dir} pct={trend.pct} tone={trend.tone} /> : null}
       </View>
-    ) : null}
-  </View>
-);
+      <Text className="text-xs text-muted-foreground">{label}</Text>
+      {clamped != null ? (
+        <View className="gap-1">
+          <View className="h-2 overflow-hidden rounded-full bg-white/60">
+            <View className={`h-2 rounded-full ${TONE_BG[tone]}`} style={{ width: `${clamped}%` }} />
+          </View>
+          <Text className="text-[11px] text-muted-foreground">{clamped}% complete</Text>
+        </View>
+      ) : null}
+    </AppCard>
+  );
+};
 
 type Tile = {
   label: string;
@@ -691,30 +685,35 @@ const IconTileButton: FC<Tile> = ({
   count,
 }) => {
   const isSecondary = variant === 'secondary';
-  const iconColor = isSecondary ? '#0F172A' : '#FFFFFF';
+  const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
+  const cardTint = isSecondary
+    ? { backgroundColor: 'rgba(255,255,255,0.86)' }
+    : { backgroundColor: 'rgba(59,130,246,0.12)' };
+  const circleTint = isSecondary
+    ? { backgroundColor: 'rgba(20,184,166,0.16)' }
+    : { backgroundColor: 'rgba(59,130,246,0.18)' };
 
   return (
-    <Button
+    <Pressable
       onPress={onPress}
-      variant={isSecondary ? 'secondary' : 'default'}
-      className="relative h-28 items-center justify-center rounded-2xl px-3 active:scale-95 active:opacity-90">
-      {typeof count === 'number' && count > 0 ? (
-        <View className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5">
-          <Text className="text-[11px] text-primary-foreground">{count}</Text>
+      android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
+      className="active:opacity-95"
+      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+      <AppCard translucent className="items-center gap-3 py-5" style={cardTint}>
+        {typeof count === 'number' && count > 0 ? (
+          <Pill label={String(count)} tone="primary" className="self-end" />
+        ) : null}
+        <View
+          className="h-14 w-14 items-center justify-center rounded-2xl"
+          style={circleTint}
+        >
+          <IconCmp size={28} color={iconColor} />
         </View>
-      ) : null}
-      <View className="items-center justify-center gap-2">
-        <IconCmp size={30} color={iconColor} />
-        <Text
-          numberOfLines={2}
-          className={
-            (isSecondary ? 'text-foreground ' : 'text-primary-foreground ') +
-            'text-center text-[14px] leading-tight'
-          }>
+        <Text numberOfLines={2} className="text-center text-sm font-semibold leading-tight text-foreground">
           {label}
         </Text>
-      </View>
-    </Button>
+      </AppCard>
+    </Pressable>
   );
 };
 
@@ -734,14 +733,12 @@ const EmptyState: FC<{
   icon?: IconType;
   tone?: Tone;
 }> = ({ title, subtitle, icon: IconCmp = Inbox, tone = 'ring' }) => (
-  <View className="items-center justify-center py-8">
-    <View className={`h-14 w-14 items-center justify-center rounded-full ${TONE_BG_FAINT[tone]}`}>
-      <IconCmp size={28} color="#0F172A" />
+  <View className="items-center justify-center gap-3 py-6">
+    <View className={`h-12 w-12 items-center justify-center rounded-full ${TONE_BG_FAINT[tone]}`}>
+      <IconCmp size={22} color="#0F172A" />
     </View>
-    <Text className="mt-3 font-semibold text-foreground">{title}</Text>
-    {subtitle ? (
-      <Text className="mt-1 text-center text-xs text-muted-foreground">{subtitle}</Text>
-    ) : null}
+    <Text className="text-sm font-semibold text-foreground">{title}</Text>
+    {subtitle ? <Text className="px-4 text-center text-xs text-muted-foreground">{subtitle}</Text> : null}
   </View>
 );
 
@@ -765,40 +762,48 @@ const List: FC<{
 }) => {
   if (!items || items.length === 0) {
     return (
-      <View className={`mt-3 rounded-xl border border-border bg-background ${className ?? ''}`}>
+      <AppCard translucent className={cn('mt-3', className)}>
         <EmptyState title={emptyTitle} subtitle={emptySubtitle} icon={emptyIcon} tone={emptyTone} />
-      </View>
+      </AppCard>
     );
   }
   return (
-    <View className={`mt-3 ${className ?? ''}`}>
+    <View className={cn('mt-3 gap-3', className)}>
       {items.map((it) => {
-        const Row = (
-          <View className="mb-2 flex-row items-center justify-between rounded-xl border border-border bg-background px-3 py-3">
+        const RowContent = (
+          <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1 flex-row items-center gap-3">
-              <View
-                className={`h-8 w-8 items-center justify-center rounded-full ${TONE_BG_FAINT[it.tone]}`}>
-                <it.icon size={18} color="#0F172A" />
+              <View className={`h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG_FAINT[it.tone]}`}>
+                <it.icon size={20} color="#0F172A" />
               </View>
-              <View className="flex-1">
-                <Text className="text-foreground">{it.title}</Text>
-                {it.meta ? (
-                  <Text className={`mt-0.5 text-xs ${TONE_TEXT[it.tone]}`}>{it.meta}</Text>
-                ) : null}
+              <View className="flex-1 gap-1">
+                <Text className="text-sm font-medium text-foreground">{it.title}</Text>
+                {it.meta ? <Text className={`text-xs ${TONE_TEXT[it.tone]}`}>{it.meta}</Text> : null}
               </View>
             </View>
             <ChevronRight size={16} color="#94A3B8" />
           </View>
         );
-        return onItemPress ? (
-          <Pressable
-            key={it.id}
-            onPress={() => onItemPress(it)}
-            android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
-            {Row}
-          </Pressable>
-        ) : (
-          <View key={it.id}>{Row}</View>
+
+        if (onItemPress) {
+          return (
+            <Pressable
+              key={it.id}
+              onPress={() => onItemPress(it)}
+              android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
+              className="active:opacity-95"
+            >
+              <AppCard translucent className="py-4">
+                {RowContent}
+              </AppCard>
+            </Pressable>
+          );
+        }
+
+        return (
+          <AppCard key={it.id} translucent className="py-4">
+            {RowContent}
+          </AppCard>
         );
       })}
     </View>
@@ -823,28 +828,27 @@ const Timeline: FC<{
 }) => {
   if (!items || items.length === 0) {
     return (
-      <View className={`mt-3 rounded-2xl border border-border bg-background ${className ?? ''}`}>
+      <AppCard translucent className={cn('mt-3', className)}>
         <EmptyState title={emptyTitle} subtitle={emptySubtitle} icon={emptyIcon} tone={emptyTone} />
-      </View>
+      </AppCard>
     );
   }
 
   return (
-    <View className={`mt-3 ${className ?? ''}`}>
-      <View className="relative pl-6">
-        <View className="absolute bottom-0 left-3 top-0 w-0.5 bg-ring/30" />
-        {items.map((it) => (
-          <View key={it.id} className="mb-4">
-            <View className={`absolute left-2.5 top-1 h-3 w-3 rounded-full ${TONE_BG[it.tone]}`} />
-            <View className="rounded-xl border border-border bg-background px-3 py-2">
+    <View className={cn('mt-3', className)}>
+      <View className="relative pl-8">
+        <View className="absolute bottom-4 left-3.5 top-2 w-[1px] bg-white/60" />
+        {items.map((it, idx) => (
+          <View key={it.id} className="relative mb-4">
+            <View className={`absolute left-2.5 top-3 h-3 w-3 rounded-full ${TONE_BG[it.tone]}`} />
+            <AppCard translucent className="ml-4 gap-1 py-3">
               <View className="flex-row items-center gap-2">
                 <it.icon size={16} color="#0F172A" />
-                <Text className="text-foreground">{it.title}</Text>
+                <Text className="text-sm font-medium text-foreground">{it.title}</Text>
               </View>
-              {it.meta ? (
-                <Text className={`mt-0.5 text-xs ${TONE_TEXT[it.tone]}`}>{it.meta}</Text>
-              ) : null}
-            </View>
+              {it.meta ? <Text className={`text-xs ${TONE_TEXT[it.tone]}`}>{it.meta}</Text> : null}
+            </AppCard>
+            {idx === items.length - 1 ? <View className="absolute bottom-[-16px] left-3.5 h-4 w-[1px] bg-white/0" /> : null}
           </View>
         ))}
       </View>
@@ -861,63 +865,62 @@ const ChatbotWidget: FC<{
 }> = ({ open, onToggle, message, setMessage }) => {
   if (!open) {
     return (
-      <View className="absolute bottom-6 right-4">
-        <Button
-          onPress={onToggle}
-          size="lg"
-          className="h-14 w-14 items-center justify-center rounded-full p-0">
-          <MessageSquare size={24} color="#FFFFFF" />
-        </Button>
-      </View>
+      <Button
+        onPress={onToggle}
+        size="lg"
+        className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-black/20"
+      >
+        <MessageSquare size={24} color="#FFFFFF" />
+      </Button>
     );
   }
 
   return (
-    <View className="absolute bottom-6 right-4 w-11/12 max-w-[360px]">
-      <View className="overflow-hidden rounded-2xl border border-border bg-background shadow-lg">
-        <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
-          <View className="flex-row items-center gap-2">
-            <MessageSquare size={22} color="#0F172A" />
-            <Text className="font-semibold text-foreground">Chatbot</Text>
+    <AppCard className="w-[320px] max-w-[360px] gap-4 p-5">
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-row items-center gap-3">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <MessageSquare size={20} color="#0F172A" />
           </View>
-
-          {/* Close button */}
-          <Pressable
-            onPress={onToggle}
-            accessibilityRole="button"
-            accessibilityLabel="Close chat"
-            className="h-9 w-9 items-center justify-center rounded-full bg-muted"
-            android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}>
-            <X size={18} color="#0F172A" />
-          </Pressable>
-        </View>
-
-        <View className="p-4">
-          <View className="rounded-xl border border-border bg-muted p-3">
-            <Text className="text-sm text-muted-foreground">
-              Hi! I can help with incidents, lost &amp; found, and safety alerts. Ask me anything.
-            </Text>
-          </View>
-
-          <View className="mt-3 flex-row items-center gap-2">
-            <Label nativeID="chatInput" className="hidden">
-              <Text>Message</Text>
-            </Label>
-            <Input
-              aria-labelledby="chatInput"
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Type your message…"
-              className="h-12 flex-1 rounded-xl bg-background"
-              returnKeyType="send"
-              onSubmitEditing={() => setMessage('')}
-            />
-            <Button onPress={() => setMessage('')} className="h-12 rounded-xl px-4">
-              <Text className="text-primary-foreground">Send</Text>
-            </Button>
+          <View>
+            <Text className="font-semibold text-foreground">Guardian assistant</Text>
+            <Text className="text-[11px] text-muted-foreground">Ask about incidents, lost &amp; found, and alerts.</Text>
           </View>
         </View>
+        <Pressable
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel="Close chat"
+          className="h-9 w-9 items-center justify-center rounded-full bg-white/80"
+          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}
+        >
+          <X size={18} color="#0F172A" />
+        </Pressable>
       </View>
-    </View>
+
+      <View className="rounded-2xl bg-white/70 p-4">
+        <Text className="text-sm text-muted-foreground">
+          Hi! I can help with incidents, lost &amp; found, and safety alerts. Ask me anything.
+        </Text>
+      </View>
+
+      <View className="flex-row items-center gap-2">
+        <Label nativeID="chatInput" className="hidden">
+          <Text>Message</Text>
+        </Label>
+        <Input
+          aria-labelledby="chatInput"
+          value={message}
+          onChangeText={setMessage}
+          placeholder="Type your message…"
+          className="h-12 flex-1 rounded-full bg-white"
+          returnKeyType="send"
+          onSubmitEditing={() => setMessage('')}
+        />
+        <Button onPress={() => setMessage('')} className="h-12 rounded-full px-5">
+          <Text className="text-primary-foreground">Send</Text>
+        </Button>
+      </View>
+    </AppCard>
   );
 };
