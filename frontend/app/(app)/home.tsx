@@ -21,9 +21,6 @@ import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
-import { fetchProfile, type Profile } from '@/lib/api';
-
-
 import {
   AlertTriangle,
   BellRing,
@@ -80,10 +77,12 @@ const TONE_BG_FAINT: Record<Tone, string> = {
  */
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
-  const { session, isOfficer: officerFromContext } = useContext(AuthContext);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-
+  const {
+    isOfficer: officerFromContext,
+    profile,
+    profileLoading,
+    refreshProfile,
+  } = useContext(AuthContext);
   const role = useMemo<Role>(() => {
     if (params.role === 'officer') return 'officer';
     if (params.role === 'citizen') return 'citizen';
@@ -103,8 +102,8 @@ export default function Home() {
   });
 
   const displayName = useMemo(() => {
-    if (!profile) return 'User';
-    return profile.name?.trim?.() || profile.username || 'User';
+    if (!profile) return 'neighbor';
+    return profile.name?.trim?.() || profile.username || 'neighbor';
   }, [profile]);
 
   // Overview (mock) — ONLY pending + ongoing
@@ -243,52 +242,23 @@ export default function Home() {
       return;
     }
     setRefreshing(true);
-    setProfileLoading(true);
-    fetchProfile()
-      .then((data) => {
-        setProfile(data);
-      })
+    refreshProfile()
       .catch(() => {
         toast.error('Failed to refresh profile');
       })
       .finally(() => {
-        setProfileLoading(false);
         setRefreshing(false);
       });
-  }, [session]);
+  }, [refreshProfile]);
 
   const onSignOut = () => router.replace('/login');
 
   useEffect(() => {
-    let active = true;
-    if (!session) {
-      setProfile(null);
-      setProfileLoading(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    setProfileLoading(true);
-    fetchProfile()
-      .then((data) => {
-        if (!active) return;
-        setProfile(data);
-      })
-      .catch(() => {
-        if (!active) return;
-        setProfile(null);
-        toast.error('Failed to load profile');
-      })
-      .finally(() => {
-        if (!active) return;
-        setProfileLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [session]);
+    if (profile || profileLoading) return;
+    refreshProfile().catch(() => {
+      toast.error('Failed to load profile');
+    });
+  }, [profile, profileLoading, refreshProfile]);
 
   // KPI trends (optional visuals kept, values illustrative)
   const trends = {
@@ -716,9 +686,13 @@ const IconTileButton: FC<Tile> = ({
   count,
 }) => {
   const isSecondary = variant === 'secondary';
-  const circleBg = isSecondary ? 'bg-accent/15' : 'bg-primary';
-  const iconColor = isSecondary ? '#0F172A' : '#FFFFFF';
-  const textClass = isSecondary ? 'text-foreground' : 'text-primary';
+  const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
+  const cardTint = isSecondary
+    ? { backgroundColor: 'rgba(255,255,255,0.86)' }
+    : { backgroundColor: 'rgba(59,130,246,0.12)' };
+  const circleTint = isSecondary
+    ? { backgroundColor: 'rgba(20,184,166,0.16)' }
+    : { backgroundColor: 'rgba(59,130,246,0.18)' };
 
   return (
     <Pressable
@@ -726,12 +700,17 @@ const IconTileButton: FC<Tile> = ({
       android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
       className="active:opacity-95"
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-      <AppCard translucent={isSecondary} className="items-center gap-3 py-5">
-        {typeof count === 'number' && count > 0 ? <Pill label={String(count)} tone="primary" className="self-end" /> : null}
-        <View className={`h-14 w-14 items-center justify-center rounded-2xl ${circleBg}`}>
+      <AppCard translucent className="items-center gap-3 py-5" style={cardTint}>
+        {typeof count === 'number' && count > 0 ? (
+          <Pill label={String(count)} tone="primary" className="self-end" />
+        ) : null}
+        <View
+          className="h-14 w-14 items-center justify-center rounded-2xl"
+          style={circleTint}
+        >
           <IconCmp size={28} color={iconColor} />
         </View>
-        <Text numberOfLines={2} className={`text-center text-sm font-semibold leading-tight ${textClass}`}>
+        <Text numberOfLines={2} className="text-center text-sm font-semibold leading-tight text-foreground">
           {label}
         </Text>
       </AppCard>

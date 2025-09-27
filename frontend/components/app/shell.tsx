@@ -18,7 +18,7 @@ type AppScreenProps = {
   children: ReactNode;
   scroll?: boolean;
   scrollComponent?: ComponentType<any>;
-  scrollViewProps?: ScrollViewProps;
+  scrollViewProps?: ScrollViewProps & Record<string, any>;
   contentClassName?: string;
   contentStyle?: ViewProps["style"];
   className?: string;
@@ -156,10 +156,10 @@ export function Pill({ tone = "neutral", icon: Icon, label, className, style, ..
 }
 
 const PILL_TONES = {
-  primary: { bg: "rgba(37, 99, 235, 0.12)", fg: "#1E40AF" },
-  accent: { bg: "rgba(14, 165, 233, 0.14)", fg: "#0369A1" },
+  primary: { bg: "rgba(59, 130, 246, 0.16)", fg: "#1C3FAA" },
+  accent: { bg: "rgba(20, 184, 166, 0.16)", fg: "#0F766E" },
   neutral: { bg: "rgba(15, 23, 42, 0.08)", fg: "#0F172A" },
-  danger: { bg: "rgba(220, 38, 38, 0.14)", fg: "#B91C1C" },
+  danger: { bg: "rgba(239, 68, 68, 0.16)", fg: "#B91C1C" },
 } as const;
 
 type ScreenHeaderProps = {
@@ -207,7 +207,7 @@ export function ScreenHeader({ title, subtitle, icon: Icon, onBack, action }: Sc
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#F5F7FF",
+    backgroundColor: "#F7F9FC",
   },
   safe: {
     flex: 1,
@@ -219,25 +219,26 @@ const styles = StyleSheet.create({
   } as any,
   blob: {
     position: "absolute",
-    width: 260,
-    height: 260,
-    borderRadius: 260 / 2,
-    opacity: 0.45,
+    width: 320,
+    height: 320,
+    borderRadius: 320 / 2,
+    opacity: 0.3,
   },
   blobTop: {
     top: -110,
     right: -80,
-    backgroundColor: "rgba(59, 130, 246, 0.25)",
+    backgroundColor: "rgba(59, 130, 246, 0.18)",
   },
   blobBottom: {
     bottom: -130,
     left: -70,
-    backgroundColor: "rgba(236, 72, 153, 0.18)",
+    backgroundColor: "rgba(20, 184, 166, 0.14)",
   },
   body: {
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 32,
+    paddingTop: 6,
   },
   scrollContent: {
     paddingBottom: 120,
@@ -254,22 +255,27 @@ const styles = StyleSheet.create({
   },
   fabInner: {
     alignSelf: "flex-end",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   cardBase: {
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.65)",
+    borderColor: "rgba(255,255,255,0.58)",
     shadowColor: "#0F172A",
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
-    padding: 20,
+    shadowOpacity: 0.1,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
+    padding: 18,
   },
   cardSolid: {
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: "rgba(255,255,255,0.92)",
   },
   cardTranslucent: {
-    backgroundColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(255,255,255,0.72)",
   },
 });
