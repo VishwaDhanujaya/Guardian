@@ -44,11 +44,6 @@ export function AppScreen({
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        <View style={styles.decorContainer} pointerEvents="none">
-          <View style={[styles.blob, styles.blobTop]} />
-          <View style={[styles.blob, styles.blobBottom]} />
-        </View>
-
         <View style={styles.body}>
           {scroll ? (
             <ScrollCmp
@@ -61,10 +56,10 @@ export function AppScreen({
                 contentStyle,
               ]}
             >
-              <View className={cn("gap-5", contentClassName)}>{children}</View>
+              <View className={cn("gap-6", contentClassName)}>{children}</View>
             </ScrollCmp>
           ) : (
-            <View className={cn("flex-1 gap-5", className)} style={styles.nonScroll}>
+            <View className={cn("flex-1 gap-6", className)} style={styles.nonScroll}>
               {children}
             </View>
           )}
@@ -92,8 +87,12 @@ export const AppCard = forwardRef<View, AppCardProps>(
     return (
       <View
         ref={ref}
-        className={cn("rounded-3xl", translucent ? "bg-white/70" : "bg-white/90", className)}
-        style={[styles.cardBase, translucent ? styles.cardTranslucent : styles.cardSolid, style]}
+        className={cn("rounded-2xl", className)}
+        style={[
+          styles.cardBase,
+          translucent ? styles.cardTranslucent : styles.cardSolid,
+          style,
+        ]}
         {...props}
       />
     );
@@ -156,10 +155,10 @@ export function Pill({ tone = "neutral", icon: Icon, label, className, style, ..
 }
 
 const PILL_TONES = {
-  primary: { bg: "rgba(59, 130, 246, 0.16)", fg: "#1C3FAA" },
-  accent: { bg: "rgba(20, 184, 166, 0.16)", fg: "#0F766E" },
-  neutral: { bg: "rgba(15, 23, 42, 0.08)", fg: "#0F172A" },
-  danger: { bg: "rgba(239, 68, 68, 0.16)", fg: "#B91C1C" },
+  primary: { bg: "#E0EAFF", fg: "#1E3A8A" },
+  accent: { bg: "#D1FAF5", fg: "#0F766E" },
+  neutral: { bg: "#E2E8F0", fg: "#0F172A" },
+  danger: { bg: "#FEE2E2", fg: "#B91C1C" },
 } as const;
 
 type ScreenHeaderProps = {
@@ -175,31 +174,32 @@ type ScreenHeaderProps = {
  */
 export function ScreenHeader({ title, subtitle, icon: Icon, onBack, action }: ScreenHeaderProps) {
   return (
-    <View className="mb-6 mt-2 flex-row items-center justify-between">
-      {onBack ? (
-        <Pressable
-          onPress={onBack}
-          className="flex-row items-center gap-2 rounded-full bg-white/70 px-3 py-1"
-          hitSlop={10}
-        >
-          <ChevronLeft size={18} color="#0F172A" />
-          <Text className="text-sm text-foreground">Back</Text>
-        </Pressable>
-      ) : (
-        <View style={{ width: 64 }} />
-      )}
+    <View className="mb-6 flex-row items-center justify-between">
+      <View className="flex-row flex-1 items-center gap-3">
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            className="h-9 w-9 items-center justify-center rounded-full bg-white"
+            style={styles.backButtonShadow}
+            hitSlop={10}
+          >
+            <ChevronLeft size={18} color="#0F172A" />
+          </Pressable>
+        ) : null}
 
-      <View className="items-center gap-1">
         {Icon ? (
-          <View className="h-11 w-11 items-center justify-center rounded-full bg-white/70">
-            <Icon size={20} color="#0F172A" />
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+            <Icon size={18} color="#0F172A" />
           </View>
         ) : null}
-        <Text className="text-lg font-semibold text-foreground">{title}</Text>
-        {subtitle ? <Text className="text-xs text-muted-foreground">{subtitle}</Text> : null}
+
+        <View className="flex-1">
+          <Text className="text-lg font-semibold text-foreground">{title}</Text>
+          {subtitle ? <Text className="text-xs text-muted-foreground">{subtitle}</Text> : null}
+        </View>
       </View>
 
-      {action ? <View>{action}</View> : <View style={{ width: 64 }} />}
+      {action ? <View className="pl-3">{action}</View> : null}
     </View>
   );
 }
@@ -207,46 +207,24 @@ export function ScreenHeader({ title, subtitle, icon: Icon, onBack, action }: Sc
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#F7F9FC",
+    backgroundColor: "#F5F7FA",
   },
   safe: {
     flex: 1,
   },
-  decorContainer: {
-    position: "absolute",
-    inset: 0,
-    overflow: "hidden",
-  } as any,
-  blob: {
-    position: "absolute",
-    width: 320,
-    height: 320,
-    borderRadius: 320 / 2,
-    opacity: 0.3,
-  },
-  blobTop: {
-    top: -110,
-    right: -80,
-    backgroundColor: "rgba(59, 130, 246, 0.18)",
-  },
-  blobBottom: {
-    bottom: -130,
-    left: -70,
-    backgroundColor: "rgba(20, 184, 166, 0.14)",
-  },
   body: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 6,
+    paddingBottom: 24,
+    paddingTop: 12,
   },
   scrollContent: {
     paddingBottom: 120,
-    paddingTop: 16,
-    gap: 20,
+    paddingTop: 12,
+    gap: 24,
   } as any,
   nonScroll: {
-    paddingTop: 16,
+    paddingTop: 12,
   },
   fabSlot: {
     position: "absolute",
@@ -256,26 +234,33 @@ const styles = StyleSheet.create({
   fabInner: {
     alignSelf: "flex-end",
     shadowColor: "#0F172A",
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   cardBase: {
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.58)",
+    borderColor: "#E2E8F0",
     shadowColor: "#0F172A",
-    shadowOpacity: 0.1,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
     padding: 18,
   },
   cardSolid: {
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "#FFFFFF",
   },
   cardTranslucent: {
-    backgroundColor: "rgba(255,255,255,0.72)",
+    backgroundColor: "#F8FAFC",
+  },
+  backButtonShadow: {
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
 });

@@ -102,7 +102,7 @@ export default function CitizenAlerts() {
         />
 
         {anyDestructive ? (
-          <AppCard translucent className="flex-row items-center gap-3 border border-destructive/30">
+          <AppCard className="flex-row items-center gap-3 border border-destructive/40">
             <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
               <AlertTriangle size={18} color="#B91C1C" />
             </View>
@@ -119,7 +119,7 @@ export default function CitizenAlerts() {
 
           <View className="gap-3">
             {rows.length === 0 ? (
-              <View className="items-center gap-3 rounded-2xl bg-white/60 p-6">
+              <View className="items-center gap-3 rounded-2xl bg-muted p-6">
                 <Megaphone size={28} color="#0F172A" />
                 <Text className="text-sm font-semibold text-foreground">No nearby alerts</Text>
                 <Text className="text-center text-xs text-muted-foreground">
@@ -134,7 +134,7 @@ export default function CitizenAlerts() {
                   android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
                   className="active:opacity-95"
                 >
-                  <View className="rounded-2xl border border-white/60 bg-white/70 p-4">
+                  <View className="rounded-2xl border border-border bg-white p-4">
                     <View className="flex-row items-center justify-between gap-3">
                       <View className="flex-1 gap-2">
                         <Text className={`text-sm font-semibold text-foreground ${it.isRead ? "opacity-60" : ""}`}>
@@ -152,7 +152,7 @@ export default function CitizenAlerts() {
                     </View>
 
                     {it.expanded ? (
-                      <View className="mt-3 gap-3 rounded-2xl bg-white/80 p-3">
+                      <View className="mt-3 gap-3 rounded-2xl bg-muted p-3">
                         <Text className="text-[13px] text-foreground">{it.message}</Text>
 
                         <View className="flex-row items-center justify-end">

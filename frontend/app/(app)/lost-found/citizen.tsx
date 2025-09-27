@@ -132,7 +132,7 @@ export default function CitizenLostFound() {
             onBack={goBack}
           />
 
-          <AppCard translucent className="gap-4">
+          <AppCard className="gap-4">
             <SectionHeader
               eyebrow="Lost something?"
               title="Report a missing item"
@@ -142,7 +142,7 @@ export default function CitizenLostFound() {
               Tell us what went missing and where you last saw it. You can update the details later if something changes.
             </Text>
             <Button
-              className="h-12 rounded-full shadow-sm shadow-primary/40"
+              className="h-12 rounded-full"
               onPress={openReportForm}
             >
               <View className="flex-row items-center gap-2">
@@ -173,7 +173,7 @@ export default function CitizenLostFound() {
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search found items"
-                className="h-11 rounded-2xl bg-muted/60 pl-10 font-sans"
+                className="h-11 rounded-2xl bg-muted pl-10 font-sans"
               />
             </View>
 
@@ -200,8 +200,7 @@ export default function CitizenLostFound() {
                     onPress={() =>
                       router.push({ pathname: "/lost-found/view", params: { id: f.id, type: "found", role: "citizen" } })
                     }
-                    className="rounded-2xl border border-border/60 bg-white/90 px-4 py-4 shadow-sm shadow-black/10 active:opacity-90"
-                    style={{ elevation: 3 }}
+                    className="rounded-2xl border border-border bg-white px-4 py-4 active:opacity-95"
                   >
                     <View className="mb-1 flex-row items-center gap-2">
                       <PackageSearch size={16} color="#0F172A" />
@@ -221,7 +220,7 @@ export default function CitizenLostFound() {
           enableOnAndroid
           keyboardShouldPersistTaps="handled"
           extraScrollHeight={120}
-          style={{ flex: 1, backgroundColor: "#F7F9FC" }}
+          style={{ flex: 1, backgroundColor: "#F5F7FA" }}
           contentContainerStyle={{ flexGrow: 1, padding: 24 }}
         >
           <Animated.View style={animStyle} className="flex-1">
@@ -235,7 +234,7 @@ export default function CitizenLostFound() {
                     Tell us what went missing
                   </Text>
                 </View>
-                <Pressable onPress={() => setOpenForm(false)} hitSlop={8} className="rounded-full bg-muted/70 p-2 active:opacity-80">
+                <Pressable onPress={() => setOpenForm(false)} hitSlop={8} className="rounded-full bg-muted p-2 active:opacity-80">
                   <X size={18} color="#0F172A" />
                 </Pressable>
               </View>
@@ -273,7 +272,7 @@ export default function CitizenLostFound() {
                   <Label>Longitude*</Label>
                   <Input value={longitude} onChangeText={setLongitude} keyboardType="numeric" />
                 </View>
-                <Button onPress={submitLost} className="mt-2 h-12 rounded-full shadow-sm shadow-primary/30" disabled={submitting}>
+                <Button onPress={submitLost} className="mt-2 h-12 rounded-full" disabled={submitting}>
                   {submitting ? (
                     <ActivityIndicator color="#fff" />
                   ) : (

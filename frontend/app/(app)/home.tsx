@@ -21,6 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
+
+
 import {
   AlertTriangle,
   BellRing,
@@ -83,6 +85,7 @@ export default function Home() {
     profileLoading,
     refreshProfile,
   } = useContext(AuthContext);
+
   const role = useMemo<Role>(() => {
     if (params.role === 'officer') return 'officer';
     if (params.role === 'citizen') return 'citizen';
@@ -348,7 +351,7 @@ export default function Home() {
           />
 
               {showBanner ? (
-                <AppCard translucent className="flex-row items-center gap-3 border border-destructive/30">
+                <AppCard className="flex-row items-center gap-3 border border-destructive/40">
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={18} color="#B91C1C" />
                   </View>
@@ -358,7 +361,7 @@ export default function Home() {
                 </AppCard>
               ) : null}
 
-              <AppCard translucent className="gap-4">
+              <AppCard className="gap-4">
                 <SectionHeader
                   eyebrow="Today"
                   title={`${greeting}, ${displayName}`}
@@ -373,7 +376,7 @@ export default function Home() {
                   }
                 />
 
-                <View className="flex-row items-center gap-2 rounded-full bg-white/70 px-3 py-1">
+                <View className="flex-row items-center gap-2 rounded-full bg-muted px-3 py-1">
                   <CalendarDays size={14} color="#0F172A" />
                   <Text className="text-xs font-medium text-muted-foreground">{dateStr}</Text>
                 </View>
@@ -608,8 +611,8 @@ const CardHeader: FC<{
     {actionLabel ? (
       <Pressable
         onPress={onAction}
-        className="flex-row items-center gap-1 rounded-full bg-white/70 px-3 py-1"
-        android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
+        className="flex-row items-center gap-1 rounded-full bg-muted px-3 py-1"
+        android_ripple={{ color: 'rgba(0,0,0,0.04)' }}>
         <Text className="text-[12px] font-semibold text-primary">{actionLabel}</Text>
         <ChevronRight size={14} color="#2563EB" />
       </Pressable>
@@ -639,7 +642,7 @@ const Kpi: FC<{
   const clamped = progress == null ? null : Math.max(0, Math.min(100, progress));
 
   return (
-    <AppCard translucent className="flex-1 gap-3">
+    <AppCard className="flex-1 gap-3">
       <View className={`h-1 w-12 rounded-full ${TONE_BG[tone]}`} />
       <View className="flex-row items-end justify-between">
         <Text className="text-3xl font-bold text-foreground">{String(value)}</Text>
@@ -648,7 +651,7 @@ const Kpi: FC<{
       <Text className="text-xs text-muted-foreground">{label}</Text>
       {clamped != null ? (
         <View className="gap-1">
-          <View className="h-2 overflow-hidden rounded-full bg-white/60">
+          <View className="h-2 overflow-hidden rounded-full bg-muted">
             <View className={`h-2 rounded-full ${TONE_BG[tone]}`} style={{ width: `${clamped}%` }} />
           </View>
           <Text className="text-[11px] text-muted-foreground">{clamped}% complete</Text>
@@ -687,12 +690,7 @@ const IconTileButton: FC<Tile> = ({
 }) => {
   const isSecondary = variant === 'secondary';
   const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
-  const cardTint = isSecondary
-    ? { backgroundColor: 'rgba(255,255,255,0.86)' }
-    : { backgroundColor: 'rgba(59,130,246,0.12)' };
-  const circleTint = isSecondary
-    ? { backgroundColor: 'rgba(20,184,166,0.16)' }
-    : { backgroundColor: 'rgba(59,130,246,0.18)' };
+  const circleTint = isSecondary ? '#E0F2F1' : '#E0EAFF';
 
   return (
     <Pressable
@@ -700,13 +698,13 @@ const IconTileButton: FC<Tile> = ({
       android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
       className="active:opacity-95"
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-      <AppCard translucent className="items-center gap-3 py-5" style={cardTint}>
+      <AppCard className="items-center gap-3 py-5">
         {typeof count === 'number' && count > 0 ? (
           <Pill label={String(count)} tone="primary" className="self-end" />
         ) : null}
         <View
           className="h-14 w-14 items-center justify-center rounded-2xl"
-          style={circleTint}
+          style={{ backgroundColor: circleTint }}
         >
           <IconCmp size={28} color={iconColor} />
         </View>
@@ -763,7 +761,7 @@ const List: FC<{
 }) => {
   if (!items || items.length === 0) {
     return (
-      <AppCard translucent className={cn('mt-3', className)}>
+      <AppCard className={cn('mt-3', className)}>
         <EmptyState title={emptyTitle} subtitle={emptySubtitle} icon={emptyIcon} tone={emptyTone} />
       </AppCard>
     );
@@ -794,7 +792,7 @@ const List: FC<{
               android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
               className="active:opacity-95"
             >
-              <AppCard translucent className="py-4">
+              <AppCard className="py-4">
                 {RowContent}
               </AppCard>
             </Pressable>
@@ -802,7 +800,7 @@ const List: FC<{
         }
 
         return (
-          <AppCard key={it.id} translucent className="py-4">
+          <AppCard key={it.id} className="py-4">
             {RowContent}
           </AppCard>
         );
@@ -829,7 +827,7 @@ const Timeline: FC<{
 }) => {
   if (!items || items.length === 0) {
     return (
-      <AppCard translucent className={cn('mt-3', className)}>
+      <AppCard className={cn('mt-3', className)}>
         <EmptyState title={emptyTitle} subtitle={emptySubtitle} icon={emptyIcon} tone={emptyTone} />
       </AppCard>
     );
@@ -838,11 +836,11 @@ const Timeline: FC<{
   return (
     <View className={cn('mt-3', className)}>
       <View className="relative pl-8">
-        <View className="absolute bottom-4 left-3.5 top-2 w-[1px] bg-white/60" />
+        <View className="absolute bottom-4 left-3.5 top-2 w-[1px] bg-muted" />
         {items.map((it, idx) => (
           <View key={it.id} className="relative mb-4">
             <View className={`absolute left-2.5 top-3 h-3 w-3 rounded-full ${TONE_BG[it.tone]}`} />
-            <AppCard translucent className="ml-4 gap-1 py-3">
+            <AppCard className="ml-4 gap-1 py-3">
               <View className="flex-row items-center gap-2">
                 <it.icon size={16} color="#0F172A" />
                 <Text className="text-sm font-medium text-foreground">{it.title}</Text>
@@ -892,14 +890,14 @@ const ChatbotWidget: FC<{
           onPress={onToggle}
           accessibilityRole="button"
           accessibilityLabel="Close chat"
-          className="h-9 w-9 items-center justify-center rounded-full bg-white/80"
+          className="h-9 w-9 items-center justify-center rounded-full bg-white"
           android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}
         >
           <X size={18} color="#0F172A" />
         </Pressable>
       </View>
 
-      <View className="rounded-2xl bg-white/70 p-4">
+      <View className="rounded-2xl bg-muted p-4">
         <Text className="text-sm text-muted-foreground">
           Hi! I can help with incidents, lost &amp; found, and safety alerts. Ask me anything.
         </Text>
