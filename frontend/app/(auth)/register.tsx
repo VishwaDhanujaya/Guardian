@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import Logo from "@/assets/images/dark-logo.png";
 import { toast } from "@/components/toast";
+import { AppCard, AppScreen } from "@/components/app/shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,39 +86,33 @@ export default function Register() {
   const sanitize = (v: string): string => v.trim().replace(/\s+/g, " ");
 
   return (
-    <KeyboardAwareScrollView
-      enableOnAndroid
-      keyboardShouldPersistTaps="handled"
-      extraScrollHeight={80}
-      onScrollBeginDrag={Keyboard.dismiss}
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF" }}
+    <AppScreen
+      scrollComponent={KeyboardAwareScrollView}
+      scrollViewProps={{
+        enableOnAndroid: true,
+        keyboardShouldPersistTaps: "handled",
+        extraScrollHeight: 80,
+        onScrollBeginDrag: Keyboard.dismiss,
+      }}
+      contentClassName="pb-10"
     >
-      <View className="flex-1 p-5">
-        <View className="flex-1 justify-center pt-10 pb-6">
-          {/* Header */}
-          <View className="items-center mb-5">
-            <Image
-              source={Logo}
-              style={{ width: 96, height: 96, borderRadius: 20 }}
-              resizeMode="contain"
-            />
-            <Text className="mt-3 text-3xl font-bold text-foreground">Create account</Text>
-            <Text className="text-sm text-muted-foreground mt-1 text-center">
-              Citizen sign up
-            </Text>
-          </View>
+      <View className="items-center gap-2 pt-6">
+        <Image
+          source={Logo}
+          style={{ width: 96, height: 96, borderRadius: 20 }}
+          resizeMode="contain"
+        />
+        <Text className="text-3xl font-bold text-foreground">Create account</Text>
+        <Text className="text-sm text-muted-foreground text-center">Citizen sign up</Text>
+      </View>
 
-          {/* Form */}
-          <Animated.View
-            className="bg-muted rounded-2xl border border-border p-4 gap-4"
-            style={{ opacity: formOpacity, transform: [{ translateY: formTranslateY }] }}
-          >
-            {/* First name */}
-            <View className="gap-1">
-              <Label nativeID="firstNameLabel" className="text-xs">
-                <Text className="text-xs text-foreground">First name</Text>
-              </Label>
+      <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formTranslateY }] }} className="w-full">
+        <AppCard className="gap-4">
+          {/* First name */}
+          <View className="gap-1">
+            <Label nativeID="firstNameLabel" className="text-xs">
+              <Text className="text-xs text-foreground">First name</Text>
+            </Label>
               <View className="relative">
                 <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
@@ -277,16 +272,14 @@ export default function Register() {
                 <Text className="font-semibold text-primary-foreground">Create account</Text>
               )}
             </Button>
-          </Animated.View>
+        </AppCard>
+      </Animated.View>
 
-          {/* Back to login */}
-          <View className="items-center mt-4">
-            <Button variant="link" onPress={() => router.replace("/login")} className="h-auto p-0">
-              <Text className="text-sm text-primary">Back to login</Text>
-            </Button>
-          </View>
-        </View>
+      <View className="items-center">
+        <Button variant="link" onPress={() => router.replace("/login")} className="h-auto p-0">
+          <Text className="text-sm text-primary">Back to login</Text>
+        </Button>
       </View>
-    </KeyboardAwareScrollView>
+    </AppScreen>
   );
 }

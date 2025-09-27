@@ -112,7 +112,7 @@ type SectionHeaderProps = {
  */
 export function SectionHeader({ eyebrow, title, description, trailing }: SectionHeaderProps) {
   return (
-    <View className="mb-3 flex-row items-start justify-between gap-3">
+    <View className="mb-3 w-full flex-row flex-wrap items-start gap-y-3 gap-x-3">
       <View className="flex-1 gap-1">
         {eyebrow ? (
           <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-primary/70">
@@ -124,7 +124,11 @@ export function SectionHeader({ eyebrow, title, description, trailing }: Section
           <Text className="text-xs text-muted-foreground">{description}</Text>
         ) : null}
       </View>
-      {trailing ? <View className="items-end justify-center">{trailing}</View> : null}
+      {trailing ? (
+        <View className="flex-row items-center justify-end gap-2" style={{ flexShrink: 0 }}>
+          {trailing}
+        </View>
+      ) : null}
     </View>
   );
 }
