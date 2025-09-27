@@ -73,7 +73,10 @@ async function createOfficers(createOfficersCount = 10) {
   const usernamePasswordPairs = [];
 
   for (let i = 0; i < createOfficersCount; i++) {
-    const officerIdNumber = faker.string.numeric({ length: 5, allowLeadingZeros: false });
+    const officerIdNumber = faker.number
+      .int({ min: 1, max: 999 })
+      .toString()
+      .padStart(3, "0");
     const officer = new UserModel(
       `OF-${officerIdNumber}`,
       faker.internet.email(),

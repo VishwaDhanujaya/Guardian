@@ -62,17 +62,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
 
+  const OFFICER_ID_LENGTH = 3;
   const isOfficer = tab === "officer";
 
+  const extractOfficerDigits = (value: string): string =>
+    value.replace(/\D+/g, "").slice(0, OFFICER_ID_LENGTH);
+
   const formatOfficerId = (value: string): string => {
-    const digits = value.replace(/\D+/g, "").slice(0, 3);
+    const digits = extractOfficerDigits(value);
     return digits.length > 0 ? `OF-${digits}` : "";
   };
 
-  const officerDigits = identifier.replace(/\D+/g, "");
+  const officerDigits = extractOfficerDigits(identifier);
   const citizenIdentifier = identifier.trim();
   const canContinue = isOfficer
-    ? officerDigits.length === 3 && password.length >= 6
+    ? officerDigits.length === OFFICER_ID_LENGTH && password.length >= 6
     : citizenIdentifier.length > 0 && password.length >= 6;
   const passwordRef = useRef<any>(null);
 

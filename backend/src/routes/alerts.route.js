@@ -7,6 +7,11 @@ const alertsRouter = Router();
 alertsRouter.get("/", alertsController.all);
 alertsRouter.post("/", OfficerAuthorizationMiddleware, alertsController.create);
 alertsRouter.get("/:alertId", alertsController.getById);
+alertsRouter.put(
+  "/:alertId",
+  OfficerAuthorizationMiddleware,
+  alertsController.updateById,
+);
 alertsRouter.delete(
   "/:alertId",
   OfficerAuthorizationMiddleware,

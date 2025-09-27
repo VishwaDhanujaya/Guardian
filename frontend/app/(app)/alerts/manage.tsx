@@ -14,7 +14,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { fetchAlerts, AlertRow } from "@/lib/api";
+import { deleteAlert, fetchAlerts, AlertRow } from "@/lib/api";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
 import {
@@ -66,11 +66,14 @@ export default function ManageAlerts() {
   const editAlert = (id: string) => router.push({ pathname: "/alerts/edit", params: { role: "officer", id } });
 
   // Actions
-  const deleteAlert = (id: string) =>
-    setRows(prev => {
-      toast.success("Alert removed");
-      return prev.filter(r => r.id !== id);
-    });
+  const deleteAlertRow = (id: string) => {
+    deleteAlert(id)
+      .then(() => {
+        setRows(prev => prev.filter(r => r.id !== id));
+        toast.success("Alert removed");
+      })
+      .catch(() => toast.error("Failed to remove alert"));
+  };
 
   return (
     <KeyboardAwareScrollView
@@ -139,7 +142,7 @@ export default function ManageAlerts() {
                       <View className="flex-row flex-wrap items-center gap-2 mt-1">
                         <View className="flex-row items-center gap-1">
                           <MapPin size={14} color="#0F172A" />
-                          <Text className="text-xs text-muted-foreground">{it.region}</Text>
+                          <Text className="text-xs text-muted-foreground">{it.type}</Text>
                         </View>
                       </View>
                     </View>
@@ -147,7 +150,7 @@ export default function ManageAlerts() {
 
                   {/* Message */}
                   <View className="bg-muted rounded-lg border border-border px-3 py-2 mt-3">
-                    <Text className="text-[12px] text-foreground">{it.message}</Text>
+                    <Text className="text-[12px] text-foreground">{it.description}</Text>
                   </View>
 
                   {/* Actions: Edit / Remove */}
@@ -162,7 +165,7 @@ export default function ManageAlerts() {
                       size="sm"
                       variant="secondary"
                       className="h-9 px-3 rounded-lg"
-                      onPress={() => deleteAlert(it.id)}
+                      onPress={() => deleteAlertRow(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
                         <Trash2 size={14} color="#DC2626" />

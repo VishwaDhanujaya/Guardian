@@ -29,11 +29,7 @@ lostArticlesRouter.delete(
   lostArticlesControler.createPersonalDetails,
 );
 
-lostArticlesRouter.get(
-  "/all",
-  OfficerAuthenticationMiddleware,
-  lostArticlesControler.getAll,
-);
+lostArticlesRouter.get("/all", lostArticlesControler.getAll);
 
 lostArticlesRouter.get("/:id", lostArticlesControler.getById);
 

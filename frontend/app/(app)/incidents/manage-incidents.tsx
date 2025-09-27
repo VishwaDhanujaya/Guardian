@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Keyboard,
   Pressable,
@@ -16,6 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
+import {
+  addReportNote,
+  fetchReports,
+  Note,
+  ReportSummary,
+  updateReportStatus,
+} from "@/lib/api";
 
 import {
   AlertTriangle,
@@ -40,8 +48,6 @@ type Status =
   | "Ongoing"
   | "Resolved";
 
-type Note = { id: string; text: string; at: string; by: string };
-
 type Row = {
   id: string;
   title: string;
@@ -54,6 +60,7 @@ type Row = {
   showNotes?: boolean;
   newNoteDraft?: string;
   newNoteHeight?: number;
+  statusDraft?: Status;
 };
 
 type TabKey = "pending" | "ongoing" | "solved";
@@ -87,16 +94,43 @@ export default function ManageIncidents() {
     transform: [{ translateY: mount.interpolate({ inputRange: [0.9, 1], outputRange: [6, 0] }) }],
   } as const;
 
-  // Mock data
-  const [rows, setRows] = useState<Row[]>([
-    { id: "m1", title: "Traffic accident · Main St", citizen: "Alex J.", status: "Ongoing",    suggestedPriority: "Urgent", reportedAgo: "1h ago", notes: [] },
-    { id: "m2", title: "Vandalism · Park gate",      citizen: "Priya K.", status: "In Review", suggestedPriority: "Normal", reportedAgo: "12m ago", notes: [] },
-    { id: "m3", title: "Robbery · 3rd Ave",          citizen: "Omar R.",  status: "Ongoing",   suggestedPriority: "Urgent", reportedAgo: "5m ago",  notes: [] },
-    { id: "m4", title: "Lost item · Phone",          citizen: "Jin L.",   status: "In Review", suggestedPriority: "Low",    reportedAgo: "3m ago",  notes: [] },
-    { id: "m5", title: "Power line down",            citizen: "Sara D.",  status: "Ongoing",   suggestedPriority: "Urgent", reportedAgo: "2h ago",  notes: [] },
-    { id: "m6", title: "Suspicious activity",        citizen: "Ken M.",   status: "In Review", suggestedPriority: "Normal", reportedAgo: "8m ago",  notes: [] },
-    { id: "m7", title: "Noise complaint",            citizen: "Maria P.", status: "Resolved",  suggestedPriority: "Low",    reportedAgo: "1d ago",  notes: [] },
-  ]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [rowActions, setRowActions] = useState<Record<string, boolean>>({});
+  const [noteActions, setNoteActions] = useState<Record<string, boolean>>({});
+
+  const mapSummaryToRow = useCallback(
+    (summary: ReportSummary): Row => ({
+      id: summary.id,
+      title: summary.title,
+      citizen: summary.citizen,
+      status: summary.status,
+      suggestedPriority: summary.suggestedPriority,
+      reportedAgo: summary.reportedAgo,
+      notes: [],
+    }),
+    [],
+  );
+
+  const loadRows = useCallback(() => {
+    setLoading(true);
+    fetchReports()
+      .then((list) => {
+        setRows(list.map(mapSummaryToRow));
+        setLoadError(false);
+        setRowActions({});
+        setNoteActions({});
+      })
+      .catch(() => {
+        setLoadError(true);
+      })
+      .finally(() => setLoading(false));
+  }, [mapSummaryToRow]);
+
+  useEffect(() => {
+    loadRows();
+  }, [loadRows]);
 
   // Tabs (init from URL if present)
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
@@ -181,20 +215,56 @@ export default function ManageIncidents() {
 
   // Toggle panels + actions
   const toggleUpdatePanel = (id: string) =>
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, showUpdate: !r.showUpdate, showNotes: false } : r)));
+    setRows(prev =>
+      prev.map(r =>
+        r.id === id
+          ? {
+              ...r,
+              showUpdate: !r.showUpdate,
+              showNotes: false,
+              statusDraft: r.showUpdate ? undefined : r.status,
+            }
+          : r,
+      ),
+    );
   const toggleNotesPanel = (id: string) =>
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, showNotes: !r.showNotes, showUpdate: false } : r)));
+    setRows(prev =>
+      prev.map(r =>
+        r.id === id
+          ? { ...r, showNotes: !r.showNotes, showUpdate: false, statusDraft: undefined }
+          : r,
+      ),
+    );
 
-  const approveRow = (id: string) =>
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, status: "Approved", showUpdate: false } : r)));
+  const setRowAction = (id: string, active: boolean) =>
+    setRowActions(prev => ({ ...prev, [id]: active }));
+  const setNoteAction = (id: string, active: boolean) =>
+    setNoteActions(prev => ({ ...prev, [id]: active }));
+  const isRowBusy = (id: string) => rowActions[id] === true;
+  const isNoteBusy = (id: string) => noteActions[id] === true;
 
-  // REJECT: soft-archive (remove from list)
-  const rejectRow = (id: string) =>
-    setRows(prev => {
-      const next = prev.filter(r => r.id !== id);
-      toast.success("Report rejected");
-      return next;
-    });
+  const applyRowStatus = async (id: string, next: Status, successMessage: string) => {
+    setRowAction(id, true);
+    try {
+      await updateReportStatus(id, next);
+      setRows(prev =>
+        prev.map(r =>
+          r.id === id
+            ? { ...r, status: next, showUpdate: false, statusDraft: undefined }
+            : r,
+        ),
+      );
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error("Failed to update report");
+    } finally {
+      setRowAction(id, false);
+    }
+  };
+
+  const approveRow = (id: string) => applyRowStatus(id, "Approved", "Report approved");
+
+  const rejectRow = (id: string) => applyRowStatus(id, "Resolved", "Report rejected");
 
   const setDraftNote = (id: string, text: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, newNoteDraft: text } : r)));
@@ -203,26 +273,31 @@ export default function ManageIncidents() {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, newNoteHeight: height } : r)));
 
   const addNote = (id: string) => {
-    setRows(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      const text = (r.newNoteDraft ?? "").trim();
-      if (!text) return r;
-      const nextNote: Note = {
-        id: `note_${Date.now()}`,
-        text,
-        at: new Date().toLocaleString(),
-        by: "Officer",
-      };
-      const next: Row = {
-        ...r,
-        notes: [...(r.notes ?? []), nextNote],
-        newNoteDraft: "",
-        newNoteHeight: undefined,
-        showNotes: true,
-      };
-      toast.success("Note added");
-      return next;
-    }));
+    const row = rows.find(r => r.id === id);
+    const text = (row?.newNoteDraft ?? "").trim();
+    if (!row || !text || isNoteBusy(id)) {
+      return;
+    }
+    setNoteAction(id, true);
+    addReportNote(id, "Officer", text)
+      .then((created) => {
+        setRows(prev =>
+          prev.map(r =>
+            r.id === id
+              ? {
+                  ...r,
+                  notes: [...(r.notes ?? []), created],
+                  newNoteDraft: "",
+                  newNoteHeight: undefined,
+                  showNotes: true,
+                }
+              : r,
+          ),
+        );
+        toast.success("Note added");
+      })
+      .catch(() => toast.error("Failed to add note"))
+      .finally(() => setNoteAction(id, false));
   };
 
   // Segmented tabs (responsive)
@@ -321,7 +396,22 @@ export default function ManageIncidents() {
 
             {/* List */}
             <View className="mt-4">
-              {visibleRows.length === 0 ? (
+              {loading ? (
+                <View className="bg-background rounded-xl border border-border p-6 items-center justify-center">
+                  <ActivityIndicator color="#0F172A" />
+                  <Text className="text-xs text-muted-foreground mt-2">Loading reports…</Text>
+                </View>
+              ) : loadError ? (
+                <View className="bg-background rounded-xl border border-border p-6 items-center">
+                  <Text className="font-semibold text-foreground">Failed to load reports</Text>
+                  <Text className="text-xs text-muted-foreground mt-1 text-center">
+                    Please try again.
+                  </Text>
+                  <Button className="mt-3 h-9 px-4 rounded-lg" onPress={loadRows}>
+                    <Text className="text-primary-foreground text-[12px]">Retry</Text>
+                  </Button>
+                </View>
+              ) : visibleRows.length === 0 ? (
                 <View className="bg-background rounded-xl border border-border p-6 items-center">
                   <View className="w-14 h-14 rounded-full items-center justify-center bg-ring/10">
                     <Inbox size={28} color="#0F172A" />
@@ -427,11 +517,8 @@ export default function ManageIncidents() {
                             <Button
                               size="sm"
                               variant={canShowApprove(r.status) ? "default" : "secondary"}
-                              disabled={!canShowApprove(r.status)}
-                              onPress={() => {
-                                approveRow(r.id);
-                                toast.success("Report approved");
-                              }}
+                              disabled={!canShowApprove(r.status) || isRowBusy(r.id)}
+                              onPress={() => approveRow(r.id)}
                               className="px-3 h-9 rounded-lg min-w-[120px]"
                             >
                               <View className="flex-row items-center gap-1">
@@ -443,6 +530,7 @@ export default function ManageIncidents() {
                             <Button
                               size="sm"
                               variant="secondary"
+                              disabled={isRowBusy(r.id)}
                               onPress={() => rejectRow(r.id)}
                               className="px-3 h-9 rounded-lg min-w-[100px]"
                             >
@@ -497,11 +585,19 @@ export default function ManageIncidents() {
                           <Text className="text-[12px] text-foreground">Set status</Text>
                           <View className="flex-row flex-wrap gap-2 mt-2">
                             {(["Approved", "Assigned", "Ongoing", "Resolved"] as const).map((opt) => {
-                              const active = r.status === opt;
+                              const active = (r.statusDraft ?? r.status) === opt;
                               return (
                                 <Pressable
                                   key={opt}
-                                  onPress={() => setRows(prev => prev.map(x => (x.id === r.id ? { ...x, status: opt } : x)))}
+                                  onPress={() =>
+                                    setRows(prev =>
+                                      prev.map(x =>
+                                        x.id === r.id
+                                          ? { ...x, statusDraft: opt }
+                                          : x,
+                                      ),
+                                    )
+                                  }
                                   className={`px-3 py-1 rounded-full border ${active ? "bg-foreground/10 border-transparent" : "bg-background border-border"}`}
                                   android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                                 >
@@ -512,18 +608,26 @@ export default function ManageIncidents() {
                           </View>
 
                           <View className="flex-row flex-wrap items-center justify-end mt-3 gap-2">
-                            <Button variant="secondary" size="sm" className="px-3 h-9 rounded-lg" onPress={() => toggleUpdatePanel(r.id)}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="px-3 h-9 rounded-lg"
+                              onPress={() => toggleUpdatePanel(r.id)}
+                            >
                               <Text className="text-foreground text-[12px]">Cancel</Text>
                             </Button>
                             <Button
                               size="sm"
                               className="px-3 h-9 rounded-lg"
+                              disabled={isRowBusy(r.id)}
                               onPress={() => {
-                                setRows(prev => prev.map(x => (x.id === r.id ? { ...x, showUpdate: false } : x)));
-                                toast.success("Status updated");
+                                const target = r.statusDraft ?? r.status;
+                                applyRowStatus(r.id, target, "Status updated");
                               }}
                             >
-                              <Text className="text-primary-foreground text-[12px]">Save</Text>
+                              <Text className="text-primary-foreground text-[12px]">
+                                {isRowBusy(r.id) ? "Saving…" : "Save"}
+                              </Text>
                             </Button>
                           </View>
                         </View>
@@ -586,8 +690,13 @@ export default function ManageIncidents() {
                                 size="sm"
                                 className="px-3 h-9 rounded-lg min-w-[96px]"
                                 onPress={() => addNote(r.id)}
+                                disabled={
+                                  isNoteBusy(r.id) || !(r.newNoteDraft ?? "").trim()
+                                }
                               >
-                                <Text className="text-primary-foreground text-[12px]">Add note</Text>
+                                <Text className="text-primary-foreground text-[12px]">
+                                  {isNoteBusy(r.id) ? "Saving…" : "Add note"}
+                                </Text>
                               </Button>
                             </View>
                           </View>

@@ -48,6 +48,23 @@ class AlertsController {
 
     return new HttpResponse(204).sendStatus(res);
   }
+
+  /**
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   */
+  async updateById(req, res) {
+    const result = await alertsService.updateById(
+      req.params.alertId,
+      req.body,
+    );
+
+    if (!result) {
+      return new HttpResponse(404).sendStatus(res);
+    }
+
+    new HttpResponse(200, result).json(res);
+  }
 }
 
 const alertsController = new AlertsController();
