@@ -1,9 +1,9 @@
 // app/(app)/alerts/citizen.tsx
 import { useNavigation } from "@react-navigation/native";
+import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Animated, Keyboard, Pressable, View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Animated, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -11,8 +11,6 @@ import useMountAnimation from "@/hooks/useMountAnimation";
 
 import {
     AlertTriangle,
-    ChevronLeft,
-    ChevronRight,
     Eye,
     EyeOff,
     MapPin,
@@ -32,6 +30,7 @@ type AlertRow = {
 export default function CitizenAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
+  const roleLabel = resolvedRole === "officer" ? "Officer" : "Citizen";
 
   // Entrance animation
   const { value: mount } = useMountAnimation({
@@ -92,96 +91,93 @@ export default function CitizenAlerts() {
   const anyDestructive = rows.length > 0; // simple banner trigger
 
   return (
-    <KeyboardAwareScrollView
-      enableOnAndroid
-      keyboardShouldPersistTaps="handled"
-      extraScrollHeight={120}
-      onScrollBeginDrag={Keyboard.dismiss}
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF" }}
-    >
-      <View className="flex-1 p-5">
-        <View className="pt-10 pb-6">
-          {/* Top bar */}
-          <View className="flex-row items-center justify-between mb-4">
-            <Pressable onPress={goBack} className="flex-row items-center gap-1 px-2 py-1 -ml-2" hitSlop={8}>
-              <ChevronLeft size={18} color="#0F172A" />
-              <Text className="text-foreground">Back</Text>
-            </Pressable>
+    <AppScreen contentClassName="gap-6">
+      <Animated.View style={animStyle} className="gap-5">
+        <ScreenHeader
+          title="Safety alerts"
+          subtitle={`${roleLabel} view`}
+          icon={Megaphone}
+          onBack={goBack}
+          action={<Pill tone="primary" label={roleLabel} />}
+        />
 
-            <View className="flex-row items-center gap-2">
-              <Megaphone size={18} color="#0F172A" />
-              <Text className="text-xl font-semibold text-foreground">Safety alerts</Text>
+        {anyDestructive ? (
+          <AppCard translucent className="flex-row items-center gap-3 border border-destructive/30">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle size={18} color="#B91C1C" />
             </View>
+            <Text className="flex-1 text-[13px] text-destructive">If this is an emergency, call 119 immediately.</Text>
+          </AppCard>
+        ) : null}
 
-            <View style={{ width: 56 }} />
-          </View>
+        <AppCard className="gap-4">
+          <SectionHeader
+            eyebrow="Live updates"
+            title="Nearby alerts"
+            description="Stay informed about urgent messages shared across your community."
+          />
 
-          {/* Banner */}
-          {anyDestructive ? (
-            <Animated.View className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 flex-row items-center gap-2 mb-3" style={animStyle}>
-              <AlertTriangle size={16} color="#DC2626" />
-              <Text className="text-[13px] text-destructive">If this is an emergency, call 119 immediately.</Text>
-            </Animated.View>
-          ) : null}
-
-          {/* List */}
-          <Animated.View style={animStyle}>
+          <View className="gap-3">
             {rows.length === 0 ? (
-              <View className="bg-muted rounded-2xl border border-border p-6 items-center">
+              <View className="items-center gap-3 rounded-2xl bg-white/60 p-6">
                 <Megaphone size={28} color="#0F172A" />
-                <Text className="mt-3 font-semibold text-foreground">No nearby alerts</Text>
-                <Text className="text-xs text-muted-foreground mt-1 text-center">
-                  Great news — nothing urgent in your area.
+                <Text className="text-sm font-semibold text-foreground">No nearby alerts</Text>
+                <Text className="text-center text-xs text-muted-foreground">
+                  Great news — nothing urgent in your area right now.
                 </Text>
               </View>
             ) : (
               rows.map((it) => (
-                <View key={it.id} className="bg-background rounded-xl border border-border px-3 py-3 mb-3">
-                  <Pressable
-                    onPress={() => toggleExpanded(it.id)}
-                    android_ripple={{ color: "rgba(0,0,0,0.04)" }}
-                    className="flex-row items-center justify-between"
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text className={`text-foreground ${it.isRead ? "opacity-70" : ""}`}>
-                        {it.title}
-                      </Text>
-                      <View className="flex-row flex-wrap items-center gap-2 mt-1">
-                        <View className="flex-row items-center gap-1">
-                          <MapPin size={14} color="#0F172A" />
-                          <Text className="text-xs text-muted-foreground">{it.region}</Text>
-                        </View>
-                        {it.meta ? <Text className="text-xs text-muted-foreground">• {it.meta}</Text> : null}
-                      </View>
-                    </View>
-                    <ChevronRight size={16} color="#94A3B8" />
-                  </Pressable>
-
-                  {it.expanded ? (
-                    <View className="bg-muted rounded-lg border border-border px-3 py-2 mt-3">
-                      <Text className="text-[12px] text-foreground">{it.message}</Text>
-
-                      <View className="flex-row items-center gap-2 mt-3">
-                        <Button
-                          variant="secondary"
-                          className="h-9 px-3 rounded-lg"
-                          onPress={() => toggleRead(it.id)}
-                        >
+                <Pressable
+                  key={it.id}
+                  onPress={() => toggleExpanded(it.id)}
+                  android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
+                  className="active:opacity-95"
+                >
+                  <View className="rounded-2xl border border-white/60 bg-white/70 p-4">
+                    <View className="flex-row items-center justify-between gap-3">
+                      <View className="flex-1 gap-2">
+                        <Text className={`text-sm font-semibold text-foreground ${it.isRead ? "opacity-60" : ""}`}>
+                          {it.title}
+                        </Text>
+                        <View className="flex-row flex-wrap items-center gap-2">
                           <View className="flex-row items-center gap-1">
-                            {it.isRead ? <EyeOff size={14} color="#0F172A" /> : <Eye size={14} color="#0F172A" />}
-                            <Text className="text-[12px] text-foreground">{it.isRead ? "Marked as read" : "Mark as read"}</Text>
+                            <MapPin size={14} color="#0F172A" />
+                            <Text className="text-xs text-muted-foreground">{it.region}</Text>
                           </View>
-                        </Button>
+                          {it.meta ? <Text className="text-xs text-muted-foreground">• {it.meta}</Text> : null}
+                        </View>
                       </View>
+                      <Pill tone={it.isRead ? "neutral" : "primary"} label={it.isRead ? "Read" : "New"} />
                     </View>
-                  ) : null}
-                </View>
+
+                    {it.expanded ? (
+                      <View className="mt-3 gap-3 rounded-2xl bg-white/80 p-3">
+                        <Text className="text-[13px] text-foreground">{it.message}</Text>
+
+                        <View className="flex-row items-center justify-end">
+                          <Button
+                            variant="secondary"
+                            className="h-10 rounded-full px-4"
+                            onPress={() => toggleRead(it.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              {it.isRead ? <EyeOff size={14} color="#0F172A" /> : <Eye size={14} color="#0F172A" />}
+                              <Text className="text-[12px] text-foreground">
+                                {it.isRead ? "Marked as read" : "Mark as read"}
+                              </Text>
+                            </View>
+                          </Button>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
               ))
             )}
-          </Animated.View>
-        </View>
-      </View>
-    </KeyboardAwareScrollView>
+          </View>
+        </AppCard>
+      </Animated.View>
+    </AppScreen>
   );
 }
