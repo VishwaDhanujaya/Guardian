@@ -1,216 +1,313 @@
-// Mock API helpers for authentication and data fetching
-// Replace the mock URL and responses with real backend integration later
+import type { AxiosResponse } from "axios";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://mockapi.local';
+import { apiService } from "@/services/apiService";
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-async function mockRequest(path: string, init?: RequestInit): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}${path}`, init);
-  } catch {
-    // ignore network errors – this is a mock
-  }
-  await delay(500);
-}
-
-export type AuthResponse = {
-  token: string;
-  user: { name: string; role: 'citizen' | 'officer' };
-  requiresMfa?: boolean;
+type ApiEnvelope<T> = {
+  status: "success" | "error";
+  data: T;
+  message?: string;
 };
 
-export async function loginUser(
-  identifier: string,
-  password: string,
-  role: 'citizen' | 'officer',
-): Promise<AuthResponse> {
-  await mockRequest('/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, password, role }),
-  });
-
-  if (identifier === 'error') {
-    throw new Error('Invalid credentials');
+async function unwrap<T>(
+  promise: Promise<AxiosResponse<ApiEnvelope<T>>>,
+): Promise<T> {
+  const response = await promise;
+  if (response.data.status !== "success") {
+    throw new Error(response.data.message ?? "Request failed");
   }
+  return response.data.data;
+}
 
+function toStringId(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return "";
+}
+
+function formatRelative(date: string | null | undefined): string {
+  if (!date) {
+    return "Just now";
+  }
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) {
+    return "Just now";
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+  return parsed.toLocaleDateString();
+}
+
+type ReportPriority = "Urgent" | "Normal" | "Low";
+type BackendReportStatus = "PENDING" | "IN-PROGRESS" | "COMPLETED" | "CLOSED";
+type FrontendReportStatus =
+  | "New"
+  | "In Review"
+  | "Approved"
+  | "Assigned"
+  | "Ongoing"
+  | "Resolved";
+
+function mapPriority(priority?: number | null): ReportPriority {
+  if (typeof priority !== "number" || Number.isNaN(priority)) {
+    return "Normal";
+  }
+  const normalized = priority > 1 ? priority / 100 : priority;
+  if (normalized >= 0.66) {
+    return "Urgent";
+  }
+  if (normalized >= 0.33) {
+    return "Normal";
+  }
+  return "Low";
+}
+
+function mapReportStatus(status?: string | null): FrontendReportStatus {
+  switch (status) {
+    case "PENDING":
+      return "In Review";
+    case "IN-PROGRESS":
+      return "Ongoing";
+    case "COMPLETED":
+    case "CLOSED":
+      return "Resolved";
+    default:
+      return "New";
+  }
+}
+
+function mapStatusToBackend(status: FrontendReportStatus): BackendReportStatus {
+  switch (status) {
+    case "In Review":
+    case "New":
+      return "PENDING";
+    case "Approved":
+    case "Assigned":
+    case "Ongoing":
+      return "IN-PROGRESS";
+    case "Resolved":
+    default:
+      return "COMPLETED";
+  }
+}
+
+function formatLocation(latitude?: number | null, longitude?: number | null): string {
+  if (typeof latitude === "number" && typeof longitude === "number") {
+    const lat = latitude.toFixed(3);
+    const lon = longitude.toFixed(3);
+    return `Lat ${lat}, Lon ${lon}`;
+  }
+  return "Not specified";
+}
+
+function mapNote(note: any): Note {
+  const created = note?.created_at ?? note?.createdAt;
   return {
-    token: 'mock-jwt',
-    user: { name: 'Test User', role },
-    requiresMfa: role === 'officer',
+    id: toStringId(note?.id),
+    text: note?.content ?? "",
+    at: formatRelative(created ?? null),
+    by: note?.subject?.trim?.() ? note.subject : "Officer",
   };
 }
 
-export async function registerUser(data: {
-  firstName: string;
-  lastName: string;
-  username: string;
-  email: string;
-  password: string;
-}): Promise<AuthResponse> {
-  await mockRequest('/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (data.email.endsWith('@taken.com')) {
-    throw new Error('Email already registered');
-  }
-
-  return {
-    token: 'mock-jwt',
-    user: { name: `${data.firstName} ${data.lastName}`, role: 'citizen' },
-  };
-}
-
-export async function verifyMfa(
-  code: string,
-  role: 'citizen' | 'officer',
-): Promise<AuthResponse> {
-  await mockRequest('/mfa', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, role }),
-  });
-
-  if (code !== '123456') {
-    throw new Error('Invalid code');
-  }
-
-  return { token: 'mock-jwt', user: { name: 'Test User', role } };
-}
-
-export async function fetchProfile(
-  token: string,
-  role: 'citizen' | 'officer',
-): Promise<{ name: string; role: 'citizen' | 'officer' }> {
-  await mockRequest('/profile', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return { name: role === 'officer' ? 'Officer Mock' : 'Test User', role };
-}
-
-// Alerts
+/**
+ * Alerts
+ */
 export type AlertDraft = {
   id?: string;
   title: string;
-  message: string;
-  region: string;
+  description: string;
+  type: string;
 };
 
 export type AlertRow = {
   id: string;
   title: string;
-  message: string;
-  region: string;
+  description: string;
+  type: string;
+  createdAt?: string | null;
 };
 
 export async function fetchAlerts(): Promise<AlertRow[]> {
-  await mockRequest('/alerts');
-  return [
-    {
-      id: 'a1',
-      title: 'Road closure at Main St',
-      message: 'Main St closed 9–12 for parade. Use 5th Ave detour.',
-      region: 'Central Branch',
-    },
-    {
-      id: 'a2',
-      title: 'Severe weather advisory',
-      message: 'Heavy rains expected. Avoid low-lying roads.',
-      region: 'West Branch',
-    },
-  ];
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>("/api/v1/alerts"),
+  );
+  return (Array.isArray(data) ? data : []).map((alert) => ({
+    id: toStringId(alert.id),
+    title: alert.title ?? "",
+    description: alert.description ?? "",
+    type: alert.type ?? "",
+    createdAt: alert.created_at ?? null,
+  }));
 }
 
-export async function getAlert(id: string): Promise<AlertDraft> {
-  await mockRequest(`/alerts/${id}`);
+export async function getAlert(id: string): Promise<AlertRow> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>(`/api/v1/alerts/${id}`),
+  );
   return {
-    id,
-    title: 'Road closure at Main St',
-    message: 'Main St closed 9–12 for parade. Use 5th Ave detour.',
-    region: 'Central Branch',
+    id: toStringId(data.id),
+    title: data.title ?? "",
+    description: data.description ?? "",
+    type: data.type ?? "",
+    createdAt: data.created_at ?? null,
   };
 }
 
-export async function saveAlert(data: AlertDraft): Promise<AlertDraft> {
-  await mockRequest(data.id ? `/alerts/${data.id}` : '/alerts', {
-    method: data.id ? 'PUT' : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return { ...data, id: data.id ?? 'new-alert' };
+export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
+  const payload = {
+    title: data.title,
+    description: data.description,
+    type: data.type,
+  };
+  const endpoint = data.id
+    ? apiService.put<ApiEnvelope<any>>(`/api/v1/alerts/${data.id}`, payload)
+    : apiService.post<ApiEnvelope<any>>("/api/v1/alerts", payload);
+  const response = await unwrap<any>(endpoint);
+  return {
+    id: toStringId(response.id),
+    title: response.title ?? payload.title,
+    description: response.description ?? payload.description,
+    type: response.type ?? payload.type,
+    createdAt: response.created_at ?? null,
+  };
 }
 
-// Incidents
+export async function deleteAlert(id: string): Promise<void> {
+  await apiService.delete(`/api/v1/alerts/${id}`);
+}
+
+/**
+ * Reports / Incidents
+ */
 export type Note = { id: string; text: string; at: string; by: string };
+
+export type ReportSummary = {
+  id: string;
+  title: string;
+  citizen: string;
+  status: FrontendReportStatus;
+  reportedAgo: string;
+  suggestedPriority: ReportPriority;
+  rawStatus: BackendReportStatus;
+};
 
 export type Report = {
   id: string;
   title: string;
-  category: 'Safety' | 'Crime' | 'Maintenance' | 'Other';
+  category: "Safety" | "Crime" | "Maintenance" | "Other";
   location: string;
   reportedBy: string;
   reportedAt: string;
-  status: 'New' | 'In Review' | 'Approved' | 'Assigned' | 'Ongoing' | 'Resolved';
-  priority: 'Urgent' | 'Normal' | 'Low';
+  status: FrontendReportStatus;
+  priority: ReportPriority;
   description?: string;
   notes: Note[];
+  images?: string[];
+  witnesses?: any[];
+  rawStatus: BackendReportStatus;
 };
 
+export async function fetchReports(): Promise<ReportSummary[]> {
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>("/api/v1/reports"),
+  );
+  const list = Array.isArray(data) ? data : [];
+  return list.map((report: any) => {
+    const id = toStringId(report.id);
+    const status = mapReportStatus(report.status);
+    return {
+      id,
+      title: report.description ? report.description.slice(0, 80) : `Report #${id}`,
+      citizen: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
+      status,
+      reportedAgo: formatRelative(report.createdAt ?? null),
+      suggestedPriority: mapPriority(report.priority),
+      rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
+    };
+  });
+}
+
 export async function getIncident(id: string): Promise<Report> {
-  await mockRequest(`/incidents/${id}`);
+  const [report, notes] = await Promise.all([
+    unwrap<any>(apiService.get<ApiEnvelope<any>>(`/api/v1/reports/${id}`)),
+    unwrap<any[]>(
+      apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
+        params: { resourceType: "report" },
+      }),
+    ).catch(() => [] as any[]),
+  ]);
+
+  const title = report.description ? report.description.slice(0, 80) : `Report #${id}`;
   return {
-    id,
-    title: 'Traffic accident · Main St',
-    category: 'Safety',
-    location: 'Main St & 3rd Ave',
-    reportedBy: 'Alex Johnson',
-    reportedAt: 'Today · 3:10 PM',
-    status: 'In Review',
-    priority: 'Urgent',
-    description:
-      'Two vehicles collided at the intersection. No visible fire. One lane blocked. Requesting traffic control.',
-    notes: [
-      { id: 'n1', text: 'Report received. Reviewing details.', at: '3:12 PM', by: 'System' },
-    ],
+    id: toStringId(report.id),
+    title,
+    category: "Safety",
+    location: formatLocation(report.latitude, report.longitude),
+    reportedBy: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
+    reportedAt: formatRelative(report.createdAt ?? null),
+    status: mapReportStatus(report.status),
+    priority: mapPriority(report.priority),
+    description: report.description ?? "",
+    notes: Array.isArray(notes) ? notes.map(mapNote) : [],
+    images: report.images ?? [],
+    witnesses: report.witnesses ?? [],
+    rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
   };
 }
 
-// Lost & Found
+export async function updateReportStatus(
+  id: string,
+  status: FrontendReportStatus,
+): Promise<void> {
+  await unwrap<any>(
+    apiService.patch<ApiEnvelope<any>>(`/api/v1/reports/update-status/${id}`, {
+      status: mapStatusToBackend(status),
+    }),
+  );
+}
+
+export async function addReportNote(
+  reportId: string,
+  subject: string,
+  content: string,
+): Promise<Note> {
+  const created = await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>(
+      `/api/v1/notes/resource/${reportId}`,
+      {
+        subject,
+        content,
+      },
+      {
+        params: { resourceType: "report" },
+      },
+    ),
+  );
+  return mapNote(created);
+}
+
+/**
+ * Lost & Found
+ */
 export type FoundItem = { id: string; title: string; meta: string };
-
-export async function fetchFoundItems(): Promise<FoundItem[]> {
-  await mockRequest('/lost-found');
-  return [
-    { id: 'f1', title: 'Wallet', meta: 'Negombo · Brown leather' },
-    { id: 'f2', title: 'Phone', meta: 'Colombo · Samsung, black' },
-  ];
-}
-
-export async function reportLostItem(data: {
-  itemName: string;
-  desc: string;
-  model: string;
-  serial: string;
-  lastLoc: string;
-  color: string;
-}): Promise<{ success: boolean }> {
-  await mockRequest('/lost-found', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (data.itemName.toLowerCase() === 'fail') {
-    throw new Error('Submission failed');
-  }
-
-  return { success: true };
-}
 
 export type FoundItemDetail = {
   id: string;
@@ -221,50 +318,86 @@ export type FoundItemDetail = {
   color?: string;
   lastLocation?: string;
   branch?: string;
-  postedAt?: string;
+  status?: string;
+  createdAt?: string | null;
 };
 
-export async function getFoundItem(id: string): Promise<FoundItemDetail> {
-  await mockRequest(`/lost-found/found/${id}`);
-  return {
-    id,
-    name: "Wallet",
-    description: "Brown leather wallet",
-    model: "N/A",
-    serial: "N/A",
-    color: "Brown",
-    lastLocation: "Negombo PS",
-    branch: "Negombo",
-    postedAt: "Today 10:30",
-  };
-}
+export type LostItemDetail = FoundItemDetail & {
+  reportedBy?: string;
+};
 
-export type LostItemDetail = {
-  id: string;
-  name: string;
+export type LostItemPayload = {
+  itemName: string;
   description?: string;
   model?: string;
   serial?: string;
   color?: string;
-  lastLocation?: string;
-  reportedBy?: string;
-  reportedAt?: string;
-  status?: string;
+  branch: string;
+  latitude: number;
+  longitude: number;
+  status?: "PENDING" | "INVESTIGATING" | "FOUND" | "CLOSED";
 };
 
-export async function getLostItem(id: string): Promise<LostItemDetail> {
-  await mockRequest(`/lost-found/lost/${id}`);
+export async function fetchFoundItems(): Promise<FoundItem[]> {
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
+  );
+  return (Array.isArray(data) ? data : [])
+    .filter((item) => item.status === "FOUND")
+    .map((item) => ({
+      id: toStringId(item.id),
+      title: item.name ?? "Unknown item",
+      meta: [item.branch, formatRelative(item.created_at ?? null)].filter(Boolean).join(" · "),
+    }));
+}
+
+function mapLostItem(item: any): FoundItemDetail {
   return {
-    id,
-    name: "Phone",
-    description: "Samsung black case",
-    model: "S21",
-    serial: "IMEI123",
-    color: "Black",
-    lastLocation: "Colombo Central",
-    reportedBy: "Priya K.",
-    reportedAt: "Yesterday 15:20",
-    status: "In Review",
+    id: toStringId(item?.id),
+    name: item?.name ?? "",
+    description: item?.description ?? "",
+    model: item?.model ?? "",
+    serial: item?.serial_number ?? "",
+    color: item?.color ?? "",
+    lastLocation: item?.latitude && item?.longitude ? formatLocation(item.latitude, item.longitude) : item?.last_location ?? "",
+    branch: item?.branch ?? "",
+    status: item?.status ?? "",
+    createdAt: item?.created_at ?? null,
   };
 }
 
+export async function getFoundItem(id: string): Promise<FoundItemDetail> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
+  );
+  return mapLostItem(data);
+}
+
+export async function getLostItem(id: string): Promise<LostItemDetail> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
+  );
+  return {
+    ...mapLostItem(data),
+    reportedBy: data?.user_id ? `Citizen #${data.user_id}` : undefined,
+  };
+}
+
+export async function reportLostItem(payload: LostItemPayload): Promise<void> {
+  const form = new FormData();
+  form.append("name", payload.itemName);
+  form.append("description", payload.description ?? "");
+  if (payload.serial) form.append("serial_number", payload.serial);
+  if (payload.color) form.append("color", payload.color);
+  if (payload.model) form.append("model", payload.model);
+  form.append("longitude", String(payload.longitude));
+  form.append("latitude", String(payload.latitude));
+  form.append("status", payload.status ?? "PENDING");
+  form.append("branch", payload.branch);
+
+  await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>("/api/v1/lost-articles", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  );
+}

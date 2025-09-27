@@ -1,7 +1,7 @@
 // app/(app)/alerts/edit.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Animated, Keyboard, Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -38,48 +38,35 @@ export default function EditAlert() {
     transform: [{ translateY: mount.interpolate({ inputRange: [0.9, 1], outputRange: [6, 0] }) }],
   } as const;
 
-// Mock fetch (retain for testing when backend is unavailable)
-  const mockExisting = useMemo(() => {
-    if (!id) return null;
-    if (id === "a1") {
-      return {
-        id: "a1",
-        title: "Road closure at Main St",
-        message: "Main St closed 9–12 for parade. Use 5th Ave detour.",
-        region: "Central Branch",
-      } as AlertDraft;
-    }
-    return null;
-  }, [id]);
-
-  // Load existing alert
-  const [existing, setExisting] = useState<AlertDraft | null>(mockExisting);
-  const [title, setTitle] = useState(mockExisting?.title ?? "Road closure at Main St");
-  const [message, setMessage] = useState(
-    mockExisting?.message ?? "Main St closed 9–12 for parade. Use 5th Ave detour."
-  );
-  const [region, setRegion] = useState(mockExisting?.region ?? "Central Branch");
+  const [existing, setExisting] = useState<AlertDraft | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [alertType, setAlertType] = useState("");
   const [messageHeight, setMessageHeight] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      setLoading(true);
-      getAlert(id)
-        .then((data) => {
-          setExisting(data);
-          setTitle(data.title);
-          setMessage(data.message);
-          setRegion(data.region);
-        })
-        .catch(() => toast.error("Failed to load alert, using mock"))
-        .finally(() => setLoading(false));
+    if (!id) {
+      return;
     }
+    setLoading(true);
+    getAlert(id)
+      .then((data) => {
+        setExisting(data);
+        setTitle(data.title);
+        setDescription(data.description);
+        setAlertType(data.type);
+      })
+      .catch(() => toast.error("Failed to load alert"))
+      .finally(() => setLoading(false));
   }, [id]);
 
   // Validation
-  const canSave = title.trim().length > 0 && message.trim().length > 0 && region.trim().length > 0;
+  const canSave =
+    title.trim().length > 0 &&
+    description.trim().length > 0 &&
+    alertType.trim().length > 0;
 
   const onSave = async () => {
     if (!canSave || saving) {
@@ -88,7 +75,7 @@ export default function EditAlert() {
     }
     try {
       setSaving(true);
-      await saveAlert({ id: existing?.id, title, message, region });
+      await saveAlert({ id: existing?.id, title, description, type: alertType });
       toast.success(existing?.id ? "Alert updated" : "Alert created");
       router.replace({ pathname: "/alerts/manage", params: { role: "officer" } });
     } catch (e) {
@@ -151,16 +138,16 @@ export default function EditAlert() {
               />
             </View>
 
-            {/* Region */}
+            {/* Type */}
             <View>
-              <Label nativeID="regionLbl">
-                <Text className="text-[12px] text-foreground">Region / Branch *</Text>
+              <Label nativeID="typeLbl">
+                <Text className="text-[12px] text-foreground">Type *</Text>
               </Label>
               <Input
-                aria-labelledby="regionLbl"
-                value={region}
-                onChangeText={setRegion}
-                placeholder="E.g., Central Branch"
+                aria-labelledby="typeLbl"
+                value={alertType}
+                onChangeText={setAlertType}
+                placeholder="E.g., Weather, Road, Safety"
                 className="bg-background rounded-xl mt-1"
                 returnKeyType="next"
               />
@@ -169,12 +156,12 @@ export default function EditAlert() {
             {/* Message */}
             <View>
               <Label nativeID="messageLbl">
-                <Text className="text-[12px] text-foreground">Message *</Text>
+                <Text className="text-[12px] text-foreground">Description *</Text>
               </Label>
               <Input
                 aria-labelledby="messageLbl"
-                value={message}
-                onChangeText={setMessage}
+                value={description}
+                onChangeText={setDescription}
                 onContentSizeChange={(e) => setMessageHeight(e.nativeEvent.contentSize.height)}
                 placeholder="Describe the alert clearly…"
                 className="bg-background rounded-xl mt-1"
@@ -217,11 +204,11 @@ export default function EditAlert() {
               </Button>
             </View>
 
-            {!canSave ? (
-              <Text className="text-[11px] text-muted-foreground mt-1">
-                Title, Region and Message are required.
-              </Text>
-            ) : null}
+              {!canSave ? (
+                <Text className="text-[11px] text-muted-foreground mt-1">
+                  Title, Type and Description are required.
+                </Text>
+              ) : null}
           </Animated.View>
         </View>
       </View>

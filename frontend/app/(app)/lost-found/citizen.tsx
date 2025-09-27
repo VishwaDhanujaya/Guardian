@@ -45,10 +45,12 @@ export default function CitizenLostFound() {
       .finally(() => setLoadingItems(false));
   }, []);
 
-  const filteredItems = foundItems.filter((f) =>
-    f.title.toLowerCase().includes(search.toLowerCase()) ||
-    f.meta.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = foundItems.filter((f) => {
+    const needle = search.toLowerCase();
+    const title = f.title.toLowerCase();
+    const meta = f.meta?.toLowerCase?.() ?? "";
+    return title.includes(needle) || meta.includes(needle);
+  });
 
 
   // lost form state
@@ -57,25 +59,45 @@ export default function CitizenLostFound() {
   const [model, setModel] = useState("");
   const [serial, setSerial] = useState("");
   const [color, setColor] = useState("");
-  const [lastLoc, setLastLoc] = useState("");
+  const [branch, setBranch] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const resetForm = () => {
     setItemName("");
     setDesc("");
     setModel("");
     setSerial("");
     setColor("");
-    setLastLoc("");
+    setBranch("");
+    setLatitude("");
+    setLongitude("");
   };
 
   const [submitting, setSubmitting] = useState(false);
   const submitLost = async () => {
-    if (!itemName || !lastLoc) {
+    if (!itemName || !branch || !latitude || !longitude) {
       toast.error("Please fill required fields");
+      return;
+    }
+    const latNum = Number(latitude);
+    const lonNum = Number(longitude);
+    if (Number.isNaN(latNum) || Number.isNaN(lonNum)) {
+      toast.error("Coordinates must be valid numbers");
       return;
     }
     try {
       setSubmitting(true);
-      await reportLostItem({ itemName, desc, model, serial, lastLoc, color });
+      await reportLostItem({
+        itemName,
+        description: desc,
+        model,
+        serial,
+        color,
+        branch,
+        latitude: latNum,
+        longitude: lonNum,
+        status: "PENDING",
+      });
       toast.success("Lost item reported");
       resetForm();
       setOpenForm(false);
@@ -192,8 +214,16 @@ export default function CitizenLostFound() {
                   <Input value={color} onChangeText={setColor} />
                 </View>
                 <View className="gap-1">
-                  <Label>Last location*</Label>
-                  <Input value={lastLoc} onChangeText={setLastLoc} />
+                  <Label>Police branch*</Label>
+                  <Input value={branch} onChangeText={setBranch} />
+                </View>
+                <View className="gap-1">
+                  <Label>Latitude*</Label>
+                  <Input value={latitude} onChangeText={setLatitude} keyboardType="numeric" />
+                </View>
+                <View className="gap-1">
+                  <Label>Longitude*</Label>
+                  <Input value={longitude} onChangeText={setLongitude} keyboardType="numeric" />
                 </View>
                 <Button onPress={submitLost} className="mt-2 h-11 rounded-lg" disabled={submitting}>
                   {submitting ? (

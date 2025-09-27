@@ -16,7 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
-import { getIncident, Note, Report } from "@/lib/api";
+import {
+  addReportNote,
+  getIncident,
+  Note,
+  Report,
+  updateReportStatus,
+} from "@/lib/api";
 
 import {
   AlertTriangle,
@@ -75,9 +81,12 @@ export default function ViewIncident() {
   // Load report
   const [report, setReport] = useState<Report | null>(null);
   const [status, setStatus] = useState<Status>("New");
+  const [statusDraft, setStatusDraft] = useState<Status | null>(null);
   const [priority, setPriority] = useState<Priority>("Normal");
   const [notes, setNotes] = useState<Note[]>([]);
   const [loadError, setLoadError] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -87,6 +96,7 @@ export default function ViewIncident() {
       .then((data) => {
         setReport(data);
         setStatus(data.status);
+        setStatusDraft(null);
         setPriority(data.priority);
         setNotes(data.notes ?? []);
       })
@@ -133,35 +143,66 @@ export default function ViewIncident() {
   }, [navigation, role, backTab, section]);
 
   // Actions
-  const onApprove = () => {
-    if (!canApproveReject) return;
-    setStatus("Approved");
-    setShowUpdate(false);
-    toast.success("Report approved");
+  const applyStatus = async (next: Status): Promise<boolean> => {
+    if (!id || statusLoading) {
+      return false;
+    }
+    setStatusLoading(true);
+    try {
+      await updateReportStatus(id, next);
+      setStatus(next);
+      return true;
+    } catch (error) {
+      toast.error("Failed to update status");
+      return false;
+    } finally {
+      setStatusLoading(false);
+    }
   };
 
-  const onReject = () => {
+  const onApprove = async () => {
     if (!canApproveReject) return;
-    setStatus("Resolved");
-    setShowUpdate(false);
-    toast.success("Report rejected");
+    const ok = await applyStatus("Approved");
+    if (ok) {
+      setShowUpdate(false);
+      toast.success("Report approved");
+    }
   };
 
-  const addNote = () => {
-    if (!canAddNotes) return;
+  const onReject = async () => {
+    if (!canApproveReject) return;
+    const ok = await applyStatus("Resolved");
+    if (ok) {
+      setShowUpdate(false);
+      toast.success("Report rejected");
+    }
+  };
+
+  const addNote = async () => {
+    if (!canAddNotes || !id || noteSaving) return;
     const text = newNoteDraft.trim();
     if (!text) return;
-    const next: Note = {
-      id: `note_${Date.now()}`,
-      text,
-      at: new Date().toLocaleString(),
-      by: role === "officer" ? "Officer" : "You",
-    };
-    setNotes((arr) => [...arr, next]);
-    setNewNoteDraft("");
-    setNewNoteHeight(undefined);
-    setShowNotes(false);
-    toast.success(notifyCitizen && role === "officer" ? "Note added and citizen notified" : "Note added");
+    try {
+      setNoteSaving(true);
+      const created = await addReportNote(
+        id,
+        role === "officer" ? "Officer" : "Citizen",
+        text,
+      );
+      setNotes((arr) => [...arr, created]);
+      setNewNoteDraft("");
+      setNewNoteHeight(undefined);
+      setShowNotes(false);
+      toast.success(
+        notifyCitizen && role === "officer"
+          ? "Note added and citizen notified"
+          : "Note added",
+      );
+    } catch (error) {
+      toast.error("Failed to add note");
+    } finally {
+      setNoteSaving(false);
+    }
   };
 
   // Icons & tones
@@ -332,7 +373,17 @@ export default function ViewIncident() {
             <Animated.View className="bg-muted rounded-2xl border border-border p-4 gap-3 mt-4" style={animStyle}>
               <View className="flex-row items-center justify-between">
                 <Text className="text-[12px] text-foreground">Status</Text>
-                <Button variant="secondary" className="h-9 px-3 rounded-lg" onPress={() => setShowUpdate((v) => !v)}>
+                <Button
+                  variant="secondary"
+                  className="h-9 px-3 rounded-lg"
+                  onPress={() =>
+                    setShowUpdate((prev) => {
+                      const next = !prev;
+                      setStatusDraft(next ? status : null);
+                      return next;
+                    })
+                  }
+                >
                   <View className="flex-row items-center gap-1">
                     <ClipboardList size={14} color="#0F172A" />
                     <Text className="text-[12px] text-foreground">{showUpdate ? "Close" : "Update status"}</Text>
@@ -345,11 +396,11 @@ export default function ViewIncident() {
                   <Text className="text-[12px] text-foreground">Set status</Text>
                   <View className="flex-row flex-wrap gap-2 mt-2">
                     {(["Approved", "Assigned", "Ongoing", "Resolved"] as const).map((opt) => {
-                      const active = status === opt;
+                      const active = (statusDraft ?? status) === opt;
                       return (
                         <Pressable
                           key={opt}
-                          onPress={() => setStatus(opt)}
+                          onPress={() => setStatusDraft(opt)}
                           className={`px-3 py-1 rounded-full border ${active ? "bg-foreground/10 border-transparent" : "bg-background border-border"}`}
                           android_ripple={{ color: "rgba(0,0,0,0.06)" }}
                         >
@@ -360,17 +411,32 @@ export default function ViewIncident() {
                   </View>
 
                   <View className="flex-row items-center justify-end gap-2 mt-3">
-                    <Button variant="secondary" className="h-9 px-3 rounded-lg" onPress={() => setShowUpdate(false)}>
+                    <Button
+                      variant="secondary"
+                      className="h-9 px-3 rounded-lg"
+                      onPress={() => {
+                        setShowUpdate(false);
+                        setStatusDraft(null);
+                      }}
+                    >
                       <Text className="text-foreground text-[12px]">Cancel</Text>
                     </Button>
                     <Button
                       className="h-9 px-3 rounded-lg"
-                      onPress={() => {
-                        setShowUpdate(false);
-                        toast.success("Status updated");
+                      disabled={statusLoading}
+                      onPress={async () => {
+                        const target = statusDraft ?? status;
+                        const ok = await applyStatus(target);
+                        if (ok) {
+                          setShowUpdate(false);
+                          setStatusDraft(null);
+                          toast.success("Status updated");
+                        }
                       }}
                     >
-                      <Text className="text-primary-foreground text-[12px]">Save</Text>
+                      <Text className="text-primary-foreground text-[12px]">
+                        {statusLoading ? "Saving..." : "Save"}
+                      </Text>
                     </Button>
                   </View>
                 </View>
@@ -448,8 +514,16 @@ export default function ViewIncident() {
                         >
                           <Text className="text-foreground text-[12px]">Cancel</Text>
                         </Button>
-                        <Button className="h-9 px-3 rounded-lg" onPress={addNote}>
-                          <Text className="text-primary-foreground text-[12px]">Add note</Text>
+                        <Button
+                          className="h-9 px-3 rounded-lg"
+                          onPress={addNote}
+                          disabled={noteSaving}
+                        >
+                          {noteSaving ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text className="text-primary-foreground text-[12px]">Add note</Text>
+                          )}
                         </Button>
                       </View>
                     </View>

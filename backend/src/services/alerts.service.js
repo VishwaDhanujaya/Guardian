@@ -34,6 +34,35 @@ class AlertsService {
 
   /**
    * @param {number} id
+   * @param {{ title: string; description: string; type: string; }} body
+   * @returns {Promise<AlertModel|null>}
+   */
+  async updateById(id, body) {
+    if (!id || Number.isNaN(id)) {
+      throw new HttpError({
+        code: 400,
+        clientMessage: "Alert ID must be included",
+      });
+    }
+
+    const alertBody = this.alertValidation.parse(body);
+
+    /** @type {AlertModel|null} */
+    const alert = await AlertModel.findById(id);
+
+    if (!alert) {
+      return null;
+    }
+
+    alert.title = alertBody.title;
+    alert.description = alertBody.description;
+    alert.type = alertBody.type;
+
+    return await alert.save();
+  }
+
+  /**
+   * @param {number} id
    * @returns {Promise<AlertModel>}
    */
   async getById(id) {
