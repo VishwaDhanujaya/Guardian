@@ -81,7 +81,6 @@ const TONE_BG_FAINT: Record<Tone, string> = {
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
   const { session, isOfficer: officerFromContext } = useContext(AuthContext);
-
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
