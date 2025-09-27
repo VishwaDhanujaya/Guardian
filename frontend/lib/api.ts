@@ -3,19 +3,30 @@ import type { AxiosResponse } from "axios";
 import { apiService } from "@/services/apiService";
 
 type ApiEnvelope<T> = {
-  status: "success" | "error";
+  status?: "success" | "error" | boolean;
   data: T;
   message?: string;
 };
 
+function isApiEnvelope<T>(payload: any): payload is ApiEnvelope<T> {
+  return payload != null && typeof payload === "object" && "data" in payload;
+}
+
 async function unwrap<T>(
-  promise: Promise<AxiosResponse<ApiEnvelope<T>>>,
+  promise: Promise<AxiosResponse<ApiEnvelope<T> | T>>,
 ): Promise<T> {
   const response = await promise;
-  if (response.data.status !== "success") {
-    throw new Error(response.data.message ?? "Request failed");
+  const payload = response.data as ApiEnvelope<T> | T;
+
+  if (isApiEnvelope<T>(payload)) {
+    const status = payload.status;
+    if (status === "error" || status === false) {
+      throw new Error(payload.message ?? "Request failed");
+    }
+    return payload.data;
   }
-  return response.data.data;
+
+  return payload as T;
 }
 
 function toStringId(value: unknown): string {
@@ -124,6 +135,39 @@ function mapNote(note: any): Note {
     text: note?.content ?? "",
     at: formatRelative(created ?? null),
     by: note?.subject?.trim?.() ? note.subject : "Officer",
+  };
+}
+
+/**
+ * Auth / Profile helpers
+ */
+export type Profile = {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  isOfficer: boolean;
+};
+
+export async function fetchProfile(): Promise<Profile> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>("/api/v1/auth/profile"),
+  );
+
+  const firstName = data?.first_name?.trim?.() ?? "";
+  const lastName = data?.last_name?.trim?.() ?? "";
+  const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  return {
+    id: toStringId(data?.id),
+    username: data?.username ?? "",
+    email: data?.email ?? "",
+    firstName,
+    lastName,
+    name: combined || data?.username?.trim?.() || "User",
+    isOfficer: Boolean(data?.is_officer),
   };
 }
 

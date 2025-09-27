@@ -5,6 +5,8 @@ import {
   useEffect,
   useState,
 } from 'react';
+
+import { fetchProfile, type Profile } from '@/lib/api';
 import { useStorageState } from '@/hooks/useStorageState';
 import { apiService } from '@/services/apiService';
 
@@ -15,28 +17,28 @@ interface RefreshResponse {
   };
 }
 
-interface ProfileResponse {
-  data: {
-    is_officer: boolean;
-  };
-}
-
 interface IAuthContext {
   session: string | null;
+  profile: Profile | null;
+  profileLoading: boolean;
   isOfficer: boolean;
   login: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuthed: () => Promise<void>;
   refreshToken: (ignoreTimeCheck?: boolean) => Promise<boolean>;
+  refreshProfile: (tokenOverride?: string | null) => Promise<Profile | null>;
 }
 
 export const AuthContext = createContext<IAuthContext>({
   session: null,
+  profile: null,
+  profileLoading: false,
   isOfficer: false,
   login: async () => {},
   logout: async () => {},
   checkAuthed: async () => {},
   refreshToken: async () => false,
+  refreshProfile: async () => null,
 });
 
 async function accessTokenIsValid(): Promise<boolean> {
@@ -54,6 +56,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [[isLoadingRefresh, refreshTokenSession], setRefreshTokenSession] =
     useStorageState('refreshToken');
   const [lastRefreshCheck, setLastRefreshCheck] = useState<number>(Date.now());
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [isOfficer, setIsOfficer] = useState<boolean>(false);
 
   const loading = isLoadingAccess || isLoadingRefresh;
@@ -66,25 +70,41 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [loading, accessTokenSession, refreshTokenSession, setAccessTokenSession]);
 
+  const refreshProfile = useCallback(
+    async (tokenOverride?: string | null): Promise<Profile | null> => {
+      const hasToken = tokenOverride ?? accessTokenSession;
+      if (!hasToken) {
+        setProfile(null);
+        setIsOfficer(false);
+        return null;
+      }
+
+      setProfileLoading(true);
+      try {
+        const nextProfile = await fetchProfile();
+        setProfile(nextProfile);
+        setIsOfficer(nextProfile.isOfficer);
+        return nextProfile;
+      } finally {
+        setProfileLoading(false);
+      }
+    },
+    [accessTokenSession],
+  );
+
   const login = useCallback(
     async (accessToken: string, refreshToken: string) => {
       await setAccessTokenSession(accessToken);
       await setRefreshTokenSession(refreshToken);
-
-      const response = await apiService.get<ProfileResponse>(
-        '/api/v1/auth/profile',
-      );
-
-      if (response.status === 200) {
-        setIsOfficer(response.data.data.is_officer);
-      }
+      await refreshProfile(accessToken);
     },
-    [setAccessTokenSession, setRefreshTokenSession],
+    [refreshProfile, setAccessTokenSession, setRefreshTokenSession],
   );
 
   const logout = useCallback(async () => {
     await setAccessTokenSession(null);
     await setRefreshTokenSession(null);
+    setProfile(null);
     setIsOfficer(false);
   }, [setAccessTokenSession, setRefreshTokenSession]);
 
@@ -105,12 +125,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
           );
 
           if (response.status === 200) {
-            await setAccessTokenSession(response.data.data.accessToken);
-            await setRefreshTokenSession(response.data.data.refreshToken);
+            const { accessToken: nextAccess, refreshToken: nextRefresh } =
+              response.data.data;
+            await setAccessTokenSession(nextAccess);
+            await setRefreshTokenSession(nextRefresh);
+            await refreshProfile(nextAccess).catch(() => {});
             return true;
           }
         } catch {
           await setRefreshTokenSession(null);
+          setProfile(null);
+          setIsOfficer(false);
         }
       }
 
@@ -121,6 +146,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       refreshTokenSession,
       setAccessTokenSession,
       setRefreshTokenSession,
+      refreshProfile,
     ],
   );
 
@@ -132,21 +158,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (await refreshToken(true)) {
           await checkAuthed();
         }
+      } else {
+        await refreshProfile().catch(() => {});
       }
     } catch {
       await setAccessTokenSession(null);
+      setProfile(null);
+      setIsOfficer(false);
     }
-  }, [refreshToken, setAccessTokenSession]);
+  }, [refreshToken, refreshProfile, setAccessTokenSession]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!accessTokenSession) {
+      setProfile(null);
+      setIsOfficer(false);
+      return;
+    }
+
+    refreshProfile().catch(() => {});
+  }, [loading, accessTokenSession, refreshProfile]);
 
   return (
     <AuthContext.Provider
       value={{
         session: accessTokenSession,
+        profile,
+        profileLoading,
         isOfficer,
         login,
         logout,
         checkAuthed,
         refreshToken,
+        refreshProfile,
       }}
     >
       {children}
