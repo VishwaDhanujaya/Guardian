@@ -80,6 +80,7 @@ const TONE_BG_FAINT: Record<Tone, string> = {
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
   const {
+    session,
     isOfficer: officerFromContext,
     profile,
     profileLoading,
@@ -252,7 +253,7 @@ export default function Home() {
       .finally(() => {
         setRefreshing(false);
       });
-  }, [refreshProfile]);
+  }, [refreshProfile, session]);
 
   const onSignOut = () => router.replace('/login');
 
@@ -495,22 +496,22 @@ export default function Home() {
                       <CardHeader title="Quick actions" tone="primary" />
                       <TileGrid
                         tiles={[
-                          { label: 'Report incident', icon: ShieldPlus, onPress: goIncidentsIndex },
+                          { label: 'Report Incident', icon: ShieldPlus, onPress: goIncidentsIndex },
                           {
-                            label: 'Lost & found',
+                            label: 'Lost & Found',
                             icon: PackageSearch,
                             onPress: goLostFoundCitizen,
                             variant: 'secondary',
                             count: counts.lostFound,
                           },
                           {
-                            label: 'My reports',
+                            label: 'My Reports',
                             icon: ClipboardList,
                             onPress: goMyReports,
-                            count: 1,
+                            count: counts.myReports,
                           },
                           {
-                            label: 'Safety alerts',
+                            label: 'Safety Alerts',
                             icon: BellRing,
                             onPress: goCitizenAlerts,
                             variant: 'secondary',
@@ -670,15 +671,27 @@ type Tile = {
 };
 
 /** Responsive 2-column grid of action tiles. */
-const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => (
-  <View className="-mx-1 mt-3 flex-row flex-wrap">
-    {tiles.map((t, i) => (
-      <View key={i} className="mb-2 basis-1/2 px-1">
-        <IconTileButton {...t} />
-      </View>
-    ))}
-  </View>
-);
+const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
+  const rows: Tile[][] = [];
+  for (let i = 0; i < tiles.length; i += 2) {
+    rows.push(tiles.slice(i, i + 2));
+  }
+
+  return (
+    <View className="mt-4 gap-3">
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} className="flex-row gap-3">
+          {row.map((tile, idx) => (
+            <View key={`${tile.label}-${idx}`} className="flex-1">
+              <IconTileButton {...tile} />
+            </View>
+          ))}
+          {row.length === 1 ? <View className="flex-1" /> : null}
+        </View>
+      ))}
+    </View>
+  );
+};
 
 /** Action tile button with optional count badge. */
 const IconTileButton: FC<Tile> = ({
@@ -691,17 +704,19 @@ const IconTileButton: FC<Tile> = ({
   const isSecondary = variant === 'secondary';
   const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
   const circleTint = isSecondary ? '#E0F2F1' : '#E0EAFF';
+  const hasBadge = typeof count === 'number' && count > 0;
 
   return (
     <Pressable
       onPress={onPress}
       android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
-      className="active:opacity-95"
+      className="w-full active:opacity-95"
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-      <AppCard className="items-center gap-3 py-5">
-        {typeof count === 'number' && count > 0 ? (
-          <Pill label={String(count)} tone="primary" className="self-end" />
-        ) : null}
+      <AppCard
+        translucent={isSecondary}
+        className="relative min-h-[148px] items-center justify-center gap-3 px-6 py-6"
+      >
+        {hasBadge ? <Pill label={String(count)} tone="primary" className="absolute right-4 top-4" /> : null}
         <View
           className="h-14 w-14 items-center justify-center rounded-2xl"
           style={{ backgroundColor: circleTint }}
@@ -875,7 +890,7 @@ const ChatbotWidget: FC<{
   }
 
   return (
-    <AppCard className="w-[320px] max-w-[360px] gap-4 p-5">
+    <AppCard className="w-[360px] max-w-[420px] gap-5 p-6">
       <View className="flex-row items-center justify-between gap-3">
         <View className="flex-row items-center gap-3">
           <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -890,20 +905,20 @@ const ChatbotWidget: FC<{
           onPress={onToggle}
           accessibilityRole="button"
           accessibilityLabel="Close chat"
-          className="h-9 w-9 items-center justify-center rounded-full bg-white"
-          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}
+          className="h-9 w-9 items-center justify-center rounded-full border border-border bg-white"
+          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: false }}
         >
           <X size={18} color="#0F172A" />
         </Pressable>
       </View>
 
-      <View className="rounded-2xl bg-muted p-4">
-        <Text className="text-sm text-muted-foreground">
+      <View className="rounded-3xl bg-muted p-5">
+        <Text className="text-base leading-relaxed text-muted-foreground">
           Hi! I can help with incidents, lost &amp; found, and safety alerts. Ask me anything.
         </Text>
       </View>
 
-      <View className="flex-row items-center gap-2">
+      <View className="flex-row items-center gap-3">
         <Label nativeID="chatInput" className="hidden">
           <Text>Message</Text>
         </Label>
@@ -912,11 +927,11 @@ const ChatbotWidget: FC<{
           value={message}
           onChangeText={setMessage}
           placeholder="Type your message…"
-          className="h-12 flex-1 rounded-full bg-white"
+          className="h-12 flex-1 rounded-full bg-white px-4"
           returnKeyType="send"
           onSubmitEditing={() => setMessage('')}
         />
-        <Button onPress={() => setMessage('')} className="h-12 rounded-full px-5">
+        <Button onPress={() => setMessage('')} className="h-12 rounded-full px-6">
           <Text className="text-primary-foreground">Send</Text>
         </Button>
       </View>
