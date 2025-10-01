@@ -432,6 +432,7 @@ export default function OfficerLost() {
           active ? "bg-foreground" : "bg-transparent"
         }`}
         android_ripple={{ color: "rgba(0,0,0,0.06)" }}
+        style={isCompact ? { minWidth: 140 } : undefined}
       >
         <Icon size={16} color={active ? "#FFFFFF" : "#0F172A"} />
         <Text className={`text-[13px] font-medium ${active ? "text-primary-foreground" : "text-foreground"}`}>
@@ -477,7 +478,7 @@ export default function OfficerLost() {
             trailing={<Pill label={`${counts[activeTab]} in ${TAB_LABEL[activeTab]}`} tone="primary" />}
           />
 
-          <View className="flex-row items-center gap-2">
+          <View className={`flex-row gap-2 ${isCompact ? "flex-wrap" : "items-center"}`}>
             <TabButton tab="pending" label="Pending" count={counts.pending} Icon={ClipboardList} />
             <TabButton tab="searching" label="Searching" count={counts.searching} Icon={Search} />
             <TabButton tab="returned" label="Returned" count={counts.returned} Icon={CheckCircle} />

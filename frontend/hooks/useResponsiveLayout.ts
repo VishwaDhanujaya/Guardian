@@ -32,9 +32,10 @@ export function useResponsiveLayout(): ResponsiveLayout {
     const contentGap = isCompact ? 20 : isCozy ? 24 : 28;
     const sectionGap = isCompact ? 20 : 24;
     const cardSpacing = isCompact ? 14 : 18;
-    const maxContentWidth = Math.min(
-      820,
-      Math.max(width - horizontalPadding * 2, width * 0.92, 0),
+    const maxContentWidth = Math.max(
+      width - horizontalPadding * 2,
+      width * 0.92,
+      0,
     );
 
     return {

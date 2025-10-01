@@ -330,6 +330,7 @@ export default function ManageIncidents() {
           active ? "bg-foreground" : "bg-transparent"
         }`}
         android_ripple={{ color: "rgba(0,0,0,0.06)" }}
+        style={isCompact ? { minWidth: 140 } : undefined}
       >
         <Icon size={16} color={active ? "#FFFFFF" : "#0F172A"} />
         <Text className={`text-[13px] font-medium ${active ? "text-primary-foreground" : "text-foreground"}`}>
@@ -380,7 +381,7 @@ export default function ManageIncidents() {
             trailing={<Pill label={`${counts[activeTab]} in ${TAB_LABEL[activeTab]}`} tone="primary" />}
           />
 
-          <View className="flex-row items-center gap-2">
+          <View className={`flex-row gap-2 ${isCompact ? "flex-wrap" : "items-center"}`}>
             <TabButton tab="pending" label="Pending" count={counts.pending} Icon={BadgeCheck} />
             <TabButton tab="ongoing" label="Ongoing" count={counts.ongoing} Icon={Hammer} />
             <TabButton tab="solved" label="Solved" count={counts.solved} Icon={CheckCircle} />
