@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { AlertRow, deleteAlert, fetchAlerts } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 import { MapPin, Megaphone, Pencil, Plus, Trash2 } from "lucide-react-native";
 
@@ -20,6 +22,7 @@ export default function ManageAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
   const isOfficer = resolvedRole === "officer";
+  const layout = useResponsiveLayout();
 
   const navigation = useNavigation<any>();
   const goBack = useCallback(() => {
@@ -109,7 +112,7 @@ export default function ManageAlerts() {
               description="Draft a message when there’s an urgent update citizens should see."
             />
 
-            <Button className="h-11 rounded-2xl px-4" onPress={createNew}>
+            <Button className={cn('h-11 rounded-2xl px-4', layout.isCozy && 'w-full justify-center')} onPress={createNew}>
               <View className="flex-row items-center justify-center gap-2">
                 <Plus size={16} color="#FFFFFF" />
                 <Text className="text-[13px] text-primary-foreground">New alert</Text>
@@ -165,12 +168,17 @@ export default function ManageAlerts() {
                 disabled={!isOfficer}
                 android_ripple={isOfficer ? { color: "rgba(0,0,0,0.04)" } : undefined}
               >
-                <View className="flex-row items-start justify-between gap-3">
+                <View
+                  className={cn(
+                    'flex-row flex-wrap items-start gap-3',
+                    layout.isCozy ? 'justify-start' : 'justify-between',
+                  )}
+                >
                   <View className="min-w-0 flex-1 pr-1">
                     <Text className="text-base font-medium text-foreground" numberOfLines={2}>
                       {it.title}
                     </Text>
-                    <View className="mt-1 flex-row items-center gap-2">
+                    <View className="mt-1 flex-row flex-wrap items-center gap-2">
                       <MapPin size={14} color="#0F172A" />
                       <Text className="text-xs text-muted-foreground">{it.type}</Text>
                     </View>
@@ -185,7 +193,7 @@ export default function ManageAlerts() {
 
                 {isOfficer ? (
                   <View className="mt-3 flex-row flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" className="h-9 rounded-lg px-3" onPress={() => editAlert(it.id)}>
+                    <Button size="sm" variant="secondary" className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')} onPress={() => editAlert(it.id)}>
                       <View className="flex-row items-center gap-1">
                         <Pencil size={14} color="#0F172A" />
                         <Text className="text-[12px] text-foreground">Edit</Text>
@@ -194,7 +202,7 @@ export default function ManageAlerts() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="h-9 rounded-lg px-3"
+                      className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
                       onPress={() => deleteAlertRow(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
