@@ -18,6 +18,7 @@ import {
   Pressable,
   RefreshControl,
   View,
+  type ViewStyle,
   useWindowDimensions,
 } from 'react-native';
 
@@ -522,67 +523,76 @@ export default function Home() {
       <View className="gap-6">
           {role === 'officer' ? (
             <>
-              <Animated.View style={animStyle(sectionAnims[0])}>
-                <Card>
-                  <CardHeader title="Overview" tone="ring" />
-                      <View
-                        className={cn(
-                          'mt-3 gap-3',
-                          layout.isCozy ? 'flex-col' : 'flex-row',
-                        )}
-                      >
-                        <Kpi
-                          label="Pending reports"
-                          value={overview.pendingReports}
-                          tone="primary"
-                          trend={trends.pendingReports}
-                        />
-                        <Kpi
-                          label="Ongoing reports"
-                          value={overview.ongoingReports}
-                          tone="ring"
-                          trend={trends.ongoingReports}
-                        />
-                      </View>
-                    </Card>
-                  </Animated.View>
-
-                  <Animated.View style={animStyle(sectionAnims[1])}>
-                    <Card>
-                      <CardHeader title="Manage" tone="primary" />
-                      {/* Order controls left/right columns:
-                          0 (left), 1 (right), 2 (left), 3 (right) */}
-                      <TileGrid
-                        tiles={[
-                          {
-                            label: 'Manage incidents',
-                            icon: Shield,
-                            onPress: goManageIncidentsPending,
-                            count: officerCounts.incidents,
-                          }, // left row 1
-                          {
-                            label: 'Lost items',
-                            icon: PackageSearch,
-                            onPress: goOfficerLostPending,
-                            variant: 'secondary',
-                            count: officerCounts.lostFound,
-                          }, // right row 1
-                          {
-                            label: 'Safety alerts',
-                            icon: BellRing,
-                            onPress: goManageAlerts,
-                            count: officerCounts.alerts,
-                          }, // left row 2
-                          {
-                            label: 'Found items',
-                            icon: PackageSearch,
-                            onPress: goOfficerFound,
-                            variant: 'secondary',
-                          }, // right row 2
-                        ]}
+              <View
+                className={cn(layout.isCozy ? 'gap-6' : 'flex-row gap-5')}
+                style={!layout.isCozy ? { alignItems: 'stretch' } : undefined}
+              >
+                <Animated.View
+                  style={[animStyle(sectionAnims[0]), !layout.isCozy && { flex: 1 }]}
+                >
+                  <Card className={!layout.isCozy ? 'flex-1' : undefined}>
+                    <CardHeader title="Overview" tone="ring" />
+                    <View
+                      className={cn(
+                        'mt-3 gap-3',
+                        layout.isCozy ? 'flex-col' : 'flex-row',
+                      )}
+                    >
+                      <Kpi
+                        label="Pending reports"
+                        value={overview.pendingReports}
+                        tone="primary"
+                        trend={trends.pendingReports}
                       />
-                    </Card>
-                  </Animated.View>
+                      <Kpi
+                        label="Ongoing reports"
+                        value={overview.ongoingReports}
+                        tone="ring"
+                        trend={trends.ongoingReports}
+                      />
+                    </View>
+                  </Card>
+                </Animated.View>
+
+                <Animated.View
+                  style={[animStyle(sectionAnims[1]), !layout.isCozy && { flex: 1 }]}
+                >
+                  <Card className={!layout.isCozy ? 'flex-1' : undefined}>
+                    <CardHeader title="Manage" tone="primary" />
+                    {/* Order controls left/right columns:
+                        0 (left), 1 (right), 2 (left), 3 (right) */}
+                    <TileGrid
+                      tiles={[
+                        {
+                          label: 'Manage incidents',
+                          icon: Shield,
+                          onPress: goManageIncidentsPending,
+                          count: officerCounts.incidents,
+                        }, // left row 1
+                        {
+                          label: 'Lost items',
+                          icon: PackageSearch,
+                          onPress: goOfficerLostPending,
+                          variant: 'secondary',
+                          count: officerCounts.lostFound,
+                        }, // right row 1
+                        {
+                          label: 'Safety alerts',
+                          icon: BellRing,
+                          onPress: goManageAlerts,
+                          count: officerCounts.alerts,
+                        }, // left row 2
+                        {
+                          label: 'Found items',
+                          icon: PackageSearch,
+                          onPress: goOfficerFound,
+                          variant: 'secondary',
+                        }, // right row 2
+                      ]}
+                    />
+                  </Card>
+                </Animated.View>
+              </View>
 
                   <Animated.View style={animStyle(sectionAnims[2])}>
                     <Card>
@@ -775,7 +785,15 @@ function alertIconForType(type?: string): IconType {
 /* -------------------- UI Partials -------------------- */
 
 /** Card container with standard padding, border, and rounded corners. */
-const Card: FC<{ children: ReactNode }> = ({ children }) => <AppCard className="gap-4">{children}</AppCard>;
+const Card: FC<{ children: ReactNode; className?: string; style?: ViewStyle }> = ({
+  children,
+  className,
+  style,
+}) => (
+  <AppCard className={cn('gap-4', className)} style={style}>
+    {children}
+  </AppCard>
+);
 
 /**
  * Section header with title, optional action, and tone bar.
