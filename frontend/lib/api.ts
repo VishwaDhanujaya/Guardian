@@ -273,7 +273,7 @@ export type Report = {
   description?: string;
   notes: Note[];
   images?: string[];
-  witnesses?: any[];
+  witnesses: ReportWitness[];
   rawStatus: BackendReportStatus;
 };
 
@@ -282,6 +282,31 @@ export type CreateReportPayload = {
   latitude?: number;
   longitude?: number;
 };
+
+export type ReportWitnessPayload = {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  contactNumber: string;
+};
+
+export type ReportWitness = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  contactNumber: string;
+};
+
+function mapReportWitness(data: any): ReportWitness {
+  return {
+    id: toStringId(data?.id),
+    firstName: data?.first_name ?? "",
+    lastName: data?.last_name ?? "",
+    dateOfBirth: data?.date_of_birth ?? "",
+    contactNumber: data?.contact_number ?? "",
+  };
+}
 
 export async function createReport(
   payload: CreateReportPayload,
@@ -313,6 +338,24 @@ export async function createReport(
     suggestedPriority: mapPriority(data?.priority),
     rawStatus: (data?.status as BackendReportStatus) ?? "PENDING",
   };
+}
+
+export async function createReportWitness(
+  reportId: string,
+  payload: ReportWitnessPayload,
+): Promise<ReportWitness> {
+  const body = {
+    first_name: payload.firstName,
+    last_name: payload.lastName,
+    date_of_birth: payload.dateOfBirth,
+    contact_number: payload.contactNumber,
+  };
+
+  const data = await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>(`/api/v1/reports/witness/${reportId}`, body),
+  );
+
+  return mapReportWitness(data);
 }
 
 export async function fetchReports(): Promise<ReportSummary[]> {
@@ -358,7 +401,9 @@ export async function getIncident(id: string): Promise<Report> {
     description: report.description ?? "",
     notes: Array.isArray(notes) ? notes.map(mapNote) : [],
     images: report.images ?? [],
-    witnesses: report.witnesses ?? [],
+    witnesses: Array.isArray(report.witnesses)
+      ? report.witnesses.map(mapReportWitness)
+      : [],
     rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
   };
 }
