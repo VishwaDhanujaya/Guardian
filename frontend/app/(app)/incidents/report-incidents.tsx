@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
+import { createReport } from "@/lib/api";
 
 import {
   AlertTriangle,
@@ -162,12 +163,33 @@ export default function ReportIncidents() {
    * Replace with API call and error handling.
    */
   const onSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await new Promise((r) => setTimeout(r, 450));
+      const witnessLines = witnesses
+        .filter((w) => w.name.trim().length > 0 && isValidPhone(w.phone))
+        .map(
+          (w, idx) =>
+            `Witness ${idx + 1}: ${w.name.trim()} (${formatPhoneDisplay(w.phone)})`,
+        );
+
+      const detailSegments = [desc.trim()];
+      if (category) detailSegments.unshift(`[${category}]`);
+      if (location.trim()) detailSegments.push(`Location: ${location.trim()}`);
+      if (witnessLines.length > 0) {
+        detailSegments.push(["Witnesses:", ...witnessLines].join("\n"));
+      }
+
+      const descriptionPayload = detailSegments.filter(Boolean).join("\n\n");
+
+      await createReport({ description: descriptionPayload });
+
       toast.success("Incident submitted");
       router.replace({ pathname: "/home", params: { role: resolvedRole } });
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || "Failed to submit incident";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

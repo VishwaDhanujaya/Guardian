@@ -2,30 +2,46 @@
 import { useNavigation } from "@react-navigation/native";
 import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Animated, Pressable, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Animated, Pressable, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
+import { fetchAlerts, formatRelativeTime, type AlertRow as AlertRecord } from "@/lib/api";
+import { toast } from "@/components/toast";
 
-import {
-    AlertTriangle,
-    Eye,
-    EyeOff,
-    MapPin,
-    Megaphone,
-} from "lucide-react-native";
+import { AlertTriangle, Eye, EyeOff, Megaphone } from "lucide-react-native";
 
 type Role = "citizen" | "officer";
 
-type AlertRow = {
-  id: string;
-  title: string;
-  message: string;
-  region: string;
-  meta?: string; // e.g., "Today", "Until 6 PM"
+type AlertRow = AlertRecord & {
+  isRead: boolean;
+  expanded: boolean;
 };
+
+const ALERT_TONES: Record<string, "destructive" | "primary" | "accent" | "ring"> = {
+  emergency: "destructive",
+  urgent: "destructive",
+  weather: "primary",
+  maintenance: "accent",
+  info: "ring",
+};
+
+function resolveAlertTone(type?: string): "destructive" | "primary" | "accent" | "ring" {
+  if (!type) return "ring";
+  const key = type.toLowerCase();
+  return ALERT_TONES[key] ?? (key.includes("emergency") ? "destructive" : "primary");
+}
+
+function formatAlertType(type?: string): string {
+  if (!type) return "General";
+  return type
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
 
 export default function CitizenAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
@@ -49,38 +65,38 @@ export default function CitizenAlerts() {
     else router.replace({ pathname: "/home", params: { role: resolvedRole } });
   };
 
-  // Mock: nearby/active alerts; region matching can be added later
-  const initial = useMemo<AlertRow[]>(
-    () => [
-      {
-        id: "a1",
-        title: "Road closure at Main St",
-        message: "Main St is closed between 3rd and 6th from 9–12 for a parade. Use the 5th Ave detour.",
-        region: "Central Branch",
-        meta: "Today",
-      },
-      {
-        id: "a2",
-        title: "Heavy rain advisory",
-        message: "Avoid low-lying roads. Expect flash floods in underpasses. Drive carefully.",
-        region: "West Branch",
-        meta: "Until 6 PM",
-      },
-      {
-        id: "a3",
-        title: "Power maintenance: Sector 12",
-        message: "Scheduled maintenance tonight 1–3 AM. Temporary outages possible in Sector 12.",
-        region: "North Branch",
-        meta: "Tonight",
-      },
-    ],
-    []
-  );
+  const [rows, setRows] = useState<AlertRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Local state for read/expanded
-  const [rows, setRows] = useState(
-    initial.map((r) => ({ ...r, isRead: false as boolean, expanded: false as boolean }))
-  );
+  const loadAlerts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAlerts();
+      setRows((prev) => {
+        const previous = new Map(prev.map((item) => [item.id, item] as const));
+        return data.map((alert) => {
+          const existing = previous.get(alert.id);
+          return {
+            ...alert,
+            isRead: existing?.isRead ?? false,
+            expanded: existing?.expanded ?? false,
+          };
+        });
+      });
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || "Failed to load alerts";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
 
   const toggleExpanded = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, expanded: !r.expanded } : r)));
@@ -88,7 +104,7 @@ export default function CitizenAlerts() {
   const toggleRead = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, isRead: !r.isRead } : r)));
 
-  const anyDestructive = rows.length > 0; // simple banner trigger
+  const anyDestructive = rows.some((r) => resolveAlertTone(r.type) === "destructive");
 
   return (
     <AppScreen contentClassName="gap-6">
@@ -115,10 +131,37 @@ export default function CitizenAlerts() {
             eyebrow="Live updates"
             title="Nearby alerts"
             description="Stay informed about urgent messages shared across your community."
+            trailing={
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={loadAlerts}
+                className="h-9 rounded-full px-3"
+                disabled={loading}
+              >
+                <Text className="text-[12px] text-foreground">{loading ? "Refreshing…" : "Refresh"}</Text>
+              </Button>
+            }
           />
 
           <View className="gap-3">
-            {rows.length === 0 ? (
+            {loading && rows.length === 0 ? (
+              <View className="items-center gap-3 rounded-2xl bg-muted p-6">
+                <ActivityIndicator size="small" color="#0F172A" />
+                <Text className="text-sm font-semibold text-foreground">Loading alerts…</Text>
+                <Text className="text-center text-xs text-muted-foreground">
+                  Fetching the latest safety notifications.
+                </Text>
+              </View>
+            ) : error && rows.length === 0 ? (
+              <View className="items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-6">
+                <Text className="text-sm font-semibold text-destructive">Unable to load alerts</Text>
+                <Text className="text-center text-xs text-destructive/80">{error}</Text>
+                <Button onPress={loadAlerts} size="sm" className="h-9 rounded-full px-4">
+                  <Text className="text-[12px] text-primary-foreground">Try again</Text>
+                </Button>
+              </View>
+            ) : rows.length === 0 ? (
               <View className="items-center gap-3 rounded-2xl bg-muted p-6">
                 <Megaphone size={28} color="#0F172A" />
                 <Text className="text-sm font-semibold text-foreground">No nearby alerts</Text>
@@ -127,53 +170,73 @@ export default function CitizenAlerts() {
                 </Text>
               </View>
             ) : (
-              rows.map((it) => (
-                <Pressable
-                  key={it.id}
-                  onPress={() => toggleExpanded(it.id)}
-                  android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
-                  className="active:opacity-95"
-                >
-                  <View className="rounded-2xl border border-border bg-white p-4">
-                    <View className="flex-row items-center justify-between gap-3">
-                      <View className="flex-1 gap-2">
-                        <Text className={`text-sm font-semibold text-foreground ${it.isRead ? "opacity-60" : ""}`}>
-                          {it.title}
-                        </Text>
-                        <View className="flex-row flex-wrap items-center gap-2">
-                          <View className="flex-row items-center gap-1">
-                            <MapPin size={14} color="#0F172A" />
-                            <Text className="text-xs text-muted-foreground">{it.region}</Text>
-                          </View>
-                          {it.meta ? <Text className="text-xs text-muted-foreground">• {it.meta}</Text> : null}
-                        </View>
-                      </View>
-                      <Pill tone={it.isRead ? "neutral" : "primary"} label={it.isRead ? "Read" : "New"} />
-                    </View>
+              rows.map((it) => {
+                const tone = resolveAlertTone(it.type);
+                const pillTone = it.isRead
+                  ? "neutral"
+                  : tone === "destructive"
+                  ? "danger"
+                  : tone === "accent"
+                  ? "accent"
+                  : "primary";
+                const detailLine = [
+                  it.type ? formatAlertType(it.type) : null,
+                  it.createdAt ? formatRelativeTime(it.createdAt) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ");
 
-                    {it.expanded ? (
-                      <View className="mt-3 gap-3 rounded-2xl bg-muted p-3">
-                        <Text className="text-[13px] text-foreground">{it.message}</Text>
-
-                        <View className="flex-row items-center justify-end">
-                          <Button
-                            variant="secondary"
-                            className="h-10 rounded-full px-4"
-                            onPress={() => toggleRead(it.id)}
+                return (
+                  <Pressable
+                    key={it.id}
+                    onPress={() => toggleExpanded(it.id)}
+                    android_ripple={{ color: "rgba(0,0,0,0.05)", borderless: false }}
+                    className="active:opacity-95"
+                  >
+                    <View className="rounded-2xl border border-border bg-white p-4">
+                      <View className="flex-row items-center justify-between gap-3">
+                        <View className="flex-1 gap-2">
+                          <Text
+                            className={`text-sm font-semibold text-foreground ${it.isRead ? "opacity-60" : ""}`}
                           >
-                            <View className="flex-row items-center gap-1">
-                              {it.isRead ? <EyeOff size={14} color="#0F172A" /> : <Eye size={14} color="#0F172A" />}
-                              <Text className="text-[12px] text-foreground">
-                                {it.isRead ? "Marked as read" : "Mark as read"}
-                              </Text>
+                            {it.title}
+                          </Text>
+                          {detailLine ? (
+                            <View className="flex-row flex-wrap items-center gap-2">
+                              <View className="flex-row items-center gap-1">
+                                <Megaphone size={14} color="#0F172A" />
+                                <Text className="text-xs text-muted-foreground">{detailLine}</Text>
+                              </View>
                             </View>
-                          </Button>
+                          ) : null}
                         </View>
+                        <Pill tone={pillTone} label={it.isRead ? "Read" : "New"} />
                       </View>
-                    ) : null}
-                  </View>
-                </Pressable>
-              ))
+
+                      {it.expanded ? (
+                        <View className="mt-3 gap-3 rounded-2xl bg-muted p-3">
+                          <Text className="text-[13px] text-foreground">{it.description}</Text>
+
+                          <View className="flex-row items-center justify-end">
+                            <Button
+                              variant="secondary"
+                              className="h-10 rounded-full px-4"
+                              onPress={() => toggleRead(it.id)}
+                            >
+                              <View className="flex-row items-center gap-1">
+                                {it.isRead ? <EyeOff size={14} color="#0F172A" /> : <Eye size={14} color="#0F172A" />}
+                                <Text className="text-[12px] text-foreground">
+                                  {it.isRead ? "Marked as read" : "Mark as read"}
+                                </Text>
+                              </View>
+                            </Button>
+                          </View>
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })
             )}
           </View>
         </AppCard>

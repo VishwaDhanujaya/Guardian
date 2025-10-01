@@ -66,6 +66,12 @@ function formatRelative(date: string | null | undefined): string {
   return parsed.toLocaleDateString();
 }
 
+export function formatRelativeTime(
+  date: string | null | undefined,
+): string {
+  return formatRelative(date);
+}
+
 type ReportPriority = "Urgent" | "Normal" | "Low";
 type BackendReportStatus = "PENDING" | "IN-PROGRESS" | "COMPLETED" | "CLOSED";
 type FrontendReportStatus =
@@ -270,6 +276,44 @@ export type Report = {
   witnesses?: any[];
   rawStatus: BackendReportStatus;
 };
+
+export type CreateReportPayload = {
+  description: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+export async function createReport(
+  payload: CreateReportPayload,
+): Promise<ReportSummary> {
+  const form = new FormData();
+  form.append("description", payload.description);
+  if (typeof payload.latitude === "number") {
+    form.append("latitude", String(payload.latitude));
+  }
+  if (typeof payload.longitude === "number") {
+    form.append("longitude", String(payload.longitude));
+  }
+
+  const data = await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>("/api/v1/reports", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  );
+
+  const id = toStringId(data?.id);
+  const status = mapReportStatus(data?.status);
+
+  return {
+    id,
+    title: data?.description ? data.description.slice(0, 80) : `Report #${id}`,
+    citizen: data?.user_id ? `Citizen #${data.user_id}` : "Unknown",
+    status,
+    reportedAgo: formatRelative(data?.createdAt ?? null),
+    suggestedPriority: mapPriority(data?.priority),
+    rawStatus: (data?.status as BackendReportStatus) ?? "PENDING",
+  };
+}
 
 export async function fetchReports(): Promise<ReportSummary[]> {
   const data = await unwrap<any[]>(

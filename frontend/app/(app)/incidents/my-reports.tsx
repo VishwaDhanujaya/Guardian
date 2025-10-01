@@ -1,12 +1,14 @@
 // app/(app)/incidents/my-reports.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/toast";
+import { fetchReports, type ReportSummary } from "@/lib/api";
 
 import { ChevronRight, ClipboardList, Inbox } from "lucide-react-native";
 
@@ -36,14 +38,41 @@ export default function MyReports() {
     else router.replace({ pathname: "/home", params: { role: "citizen" } });
   }, [navigation]);
 
-  // Mock user's reports
+  const [reports, setReports] = useState<ReportSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchReports();
+      setReports(data);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || "Failed to load reports";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
   const all = useMemo<Row[]>(
-    () => [
-      { id: "m1", title: "Traffic accident · Main St", status: "Ongoing",   priority: "Urgent", reportedAgo: "2h ago" },
-      { id: "m2", title: "Vandalism · Park gate",      status: "In Review", priority: "Normal", reportedAgo: "Yesterday" },
-      { id: "m3", title: "Streetlight outage",         status: "Resolved",  priority: "Low",    reportedAgo: "2d ago" },
-    ],
-    []
+    () =>
+      reports.map(
+        (report): Row => ({
+          id: report.id,
+          title: report.title,
+          status: report.status,
+          priority: report.suggestedPriority,
+          reportedAgo: report.reportedAgo,
+        }),
+      ),
+    [reports],
   );
 
   const [filter, setFilter] = useState<"All" | "Pending" | "Ongoing" | "Resolved">("All");
@@ -74,7 +103,20 @@ export default function MyReports() {
         <SectionHeader
           title="Your reports"
           description="Filter by status and tap a report to view progress."
-          trailing={<Pill label={`${filtered.length} shown`} tone="primary" />}
+          trailing={
+            <View className="flex-row items-center gap-2">
+              <Pill label={`${filtered.length} shown`} tone="primary" />
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={loadReports}
+                className="h-9 rounded-full px-3"
+                disabled={loading}
+              >
+                <Text className="text-[12px] text-foreground">{loading ? "Refreshing…" : "Refresh"}</Text>
+              </Button>
+            </View>
+          }
         />
 
         <View className="flex-row flex-wrap gap-2">
@@ -96,7 +138,25 @@ export default function MyReports() {
         </View>
 
         <View className="gap-3">
-          {filtered.length === 0 ? (
+          {loading && all.length === 0 ? (
+            <View className="items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 p-6">
+              <ActivityIndicator size="small" color="#0F172A" />
+              <Text className="text-sm font-semibold text-foreground">Loading reports…</Text>
+              <Text className="text-center text-[12px] text-muted-foreground">
+                Fetching your submitted incidents from the server.
+              </Text>
+            </View>
+          ) : error && all.length === 0 ? (
+            <View className="items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-6">
+              <Text className="text-sm font-semibold text-destructive">Unable to load reports</Text>
+              <Text className="text-center text-[12px] text-destructive/80">
+                {error}
+              </Text>
+              <Button onPress={loadReports} size="sm" className="h-9 rounded-full px-4">
+                <Text className="text-[12px] text-primary-foreground">Try again</Text>
+              </Button>
+            </View>
+          ) : filtered.length === 0 ? (
             <View className="items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 p-6">
               <View className="h-14 w-14 items-center justify-center rounded-full bg-ring/10">
                 <Inbox size={28} color="#0F172A" />
@@ -110,7 +170,9 @@ export default function MyReports() {
             filtered.map((r) => (
               <Pressable
                 key={r.id}
-                onPress={() => router.push({ pathname: "/incidents/view", params: { id: r.id, role: "citizen" } })}
+                onPress={() =>
+                  router.push({ pathname: "/incidents/view", params: { id: r.id, role: "citizen" } })
+                }
                 className="rounded-2xl border border-border bg-background px-4 py-4"
                 android_ripple={{ color: "rgba(0,0,0,0.04)", borderless: false }}
               >
