@@ -8,7 +8,6 @@ import {
   Pressable,
   RefreshControl,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import {
   addLostItemNote,
   fetchLostItemNotes,
@@ -140,8 +140,8 @@ export default function OfficerLost() {
   const { role, tab: tabParam } = useLocalSearchParams<{ role?: string; tab?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
 
-  const { width } = useWindowDimensions();
-  const isCompact = width < 360;
+  const layout = useResponsiveLayout();
+  const isCompact = layout.width < 420;
 
   const navigation = useNavigation<any>();
   const goBack = useCallback(() => {
