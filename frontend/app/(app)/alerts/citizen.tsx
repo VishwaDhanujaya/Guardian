@@ -10,6 +10,8 @@ import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { fetchAlerts, formatRelativeTime, type AlertRow as AlertRecord } from "@/lib/api";
 import { toast } from "@/components/toast";
+import { cn } from "@/lib/utils";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 import { AlertTriangle, Eye, EyeOff, Megaphone } from "lucide-react-native";
 
@@ -47,6 +49,7 @@ export default function CitizenAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
   const roleLabel = resolvedRole === "officer" ? "Officer" : "Citizen";
+  const layout = useResponsiveLayout();
 
   // Entrance animation
   const { value: mount } = useMountAnimation({
@@ -118,11 +121,16 @@ export default function CitizenAlerts() {
         />
 
         {anyDestructive ? (
-          <AppCard className="flex-row items-center gap-3 border border-destructive/40">
+          <AppCard
+            className={cn(
+              'flex-row flex-wrap items-center gap-3 border border-destructive/40',
+              layout.isCozy && 'flex-col items-start text-left',
+            )}
+          >
             <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
               <AlertTriangle size={18} color="#B91C1C" />
             </View>
-            <Text className="flex-1 text-[13px] text-destructive">If this is an emergency, call 119 immediately.</Text>
+            <Text className={cn('text-[13px] text-destructive', layout.isCozy ? 'text-left' : 'flex-1')}>If this is an emergency, call 119 immediately.</Text>
           </AppCard>
         ) : null}
 
@@ -194,10 +202,16 @@ export default function CitizenAlerts() {
                     className="active:opacity-95"
                   >
                     <View className="rounded-2xl border border-border bg-white p-4">
-                      <View className="flex-row items-center justify-between gap-3">
-                        <View className="flex-1 gap-2">
+                      <View
+                        className={cn(
+                          'flex-row flex-wrap items-center gap-3',
+                          layout.isCozy ? 'justify-start' : 'justify-between',
+                        )}
+                      >
+                        <View className="min-w-0 flex-1 gap-2">
                           <Text
                             className={`text-sm font-semibold text-foreground ${it.isRead ? "opacity-60" : ""}`}
+                            numberOfLines={2}
                           >
                             {it.title}
                           </Text>
@@ -217,10 +231,15 @@ export default function CitizenAlerts() {
                         <View className="mt-3 gap-3 rounded-2xl bg-muted p-3">
                           <Text className="text-[13px] text-foreground">{it.description}</Text>
 
-                          <View className="flex-row items-center justify-end">
+                          <View
+                            className={cn(
+                              'flex-row flex-wrap items-center gap-2',
+                              layout.isCozy ? 'justify-start' : 'justify-end',
+                            )}
+                          >
                             <Button
                               variant="secondary"
-                              className="h-10 rounded-full px-4"
+                              className={cn('h-10 rounded-full px-4', layout.isCozy && 'w-full justify-center')}
                               onPress={() => toggleRead(it.id)}
                             >
                               <View className="flex-row items-center gap-1">
