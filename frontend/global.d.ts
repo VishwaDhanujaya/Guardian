@@ -27,6 +27,11 @@ declare module '*.svg' {
 }
 
 declare module '@react-native-async-storage/async-storage';
+declare module '@react-native-community/datetimepicker' {
+  const DateTimePicker: any;
+  export default DateTimePicker;
+  export const DateTimePickerAndroid: any;
+}
 declare module 'expo-symbols' {
   import type { ComponentType } from 'react';
   import { ViewProps } from 'react-native';

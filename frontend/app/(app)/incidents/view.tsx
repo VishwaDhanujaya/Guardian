@@ -27,6 +27,7 @@ import {
 import {
   AlertTriangle,
   BadgeCheck,
+  Calendar,
   CalendarDays,
   CheckCircle,
   CheckCircle2,
@@ -37,7 +38,9 @@ import {
   MapPin,
   MessageSquare,
   PackageSearch,
+  Phone,
   ShieldAlert,
+  Users,
 } from "lucide-react-native";
 
 type Role = "citizen" | "officer";
@@ -58,6 +61,8 @@ function getMockReport(id: string): Report {
     description:
       "Two vehicles collided at the intersection. No visible fire. One lane blocked. Requesting traffic control.",
     notes: [{ id: "n1", text: "Report received. Reviewing details.", at: "3:12 PM", by: "System" }],
+    witnesses: [],
+    rawStatus: "PENDING",
   };
 }
 
@@ -270,6 +275,27 @@ export default function ViewIncident() {
 
   const PillIcon = prioPill(priority).Icon;
 
+  const formatPhoneDisplay = (value: string) =>
+    /^0\d{9}$/.test(value) ? value.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : value || "Not provided";
+
+  const formatDobDisplay = (value: string) => {
+    if (!value) return "Not provided";
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return value;
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, month, day);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const witnesses = report.witnesses ?? [];
+
   return (
     <KeyboardAwareScrollView
       enableOnAndroid
@@ -341,6 +367,53 @@ export default function ViewIncident() {
                 <Text className="text-sm text-foreground">{report.description}</Text>
               </View>
             ) : null}
+          </Animated.View>
+
+          {/* Witness summary */}
+          <Animated.View className="bg-muted rounded-2xl border border-border p-4 gap-3 mt-4" style={animStyle}>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Users size={16} color="#0F172A" />
+                <Text className="text-[13px] text-foreground">Witnesses</Text>
+              </View>
+              <Text className="text-[11px] text-muted-foreground">
+                {witnesses.length === 1 ? "1 saved" : `${witnesses.length} saved`}
+              </Text>
+            </View>
+
+            {witnesses.length > 0 ? (
+              <View className="gap-2">
+                {witnesses.map((w) => {
+                  const name = [w.firstName, w.lastName].filter(Boolean).join(" ").trim();
+                  return (
+                    <View key={w.id} className="bg-background border border-border rounded-xl px-3 py-2">
+                      <Text className="text-[13px] text-foreground">{name || "Unnamed witness"}</Text>
+                      <View className="flex-row flex-wrap items-center gap-3 mt-1">
+                        <View className="flex-row items-center gap-1">
+                          <Calendar size={12} color="#0F172A" />
+                          <Text className="text-[11px] text-muted-foreground">
+                            {formatDobDisplay(w.dateOfBirth)}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center gap-1">
+                          <Phone size={12} color="#0F172A" />
+                          <Text className="text-[11px] text-muted-foreground">
+                            {formatPhoneDisplay(w.contactNumber)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View className="bg-background border border-border rounded-xl px-3 py-3">
+                <Text className="text-[12px] text-muted-foreground">No witnesses recorded.</Text>
+                <Text className="text-[11px] text-muted-foreground mt-1">
+                  Witnesses saved during submission will appear here for follow-up.
+                </Text>
+              </View>
+            )}
           </Animated.View>
 
           {/* Officer actions by SECTION */}
