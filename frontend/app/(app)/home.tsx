@@ -11,7 +11,15 @@ import {
   type FC,
   type ReactNode,
 } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, RefreshControl, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Platform,
+  Pressable,
+  RefreshControl,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import { AppCard, AppScreen, Pill, SectionHeader, ScreenHeader } from '@/components/app/shell';
 import { toast } from '@/components/toast';
@@ -22,6 +30,7 @@ import { Text } from '@/components/ui/text';
 import { fetchAlerts, fetchLostItems, fetchReports, formatRelativeTime, type AlertRow, type LostItemDetail, type ReportSummary } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 
 import {
@@ -87,6 +96,7 @@ export default function Home() {
     profileLoading,
     refreshProfile,
   } = useContext(AuthContext);
+  const layout = useResponsiveLayout();
 
   const role = useMemo<Role>(() => {
     if (params.role === 'officer') return 'officer';
@@ -434,22 +444,37 @@ export default function Home() {
           />
 
               {showBanner ? (
-                <AppCard className="flex-row items-center gap-3 border border-destructive/40">
+                <AppCard
+                  className={cn(
+                    'flex-row flex-wrap items-center gap-3 border border-destructive/40',
+                    layout.isCozy && 'flex-col items-start text-left',
+                  )}
+                >
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={18} color="#B91C1C" />
                   </View>
-                  <Text className="flex-1 text-[13px] text-destructive">
+                  <Text
+                    className={cn(
+                      'text-[13px] text-destructive',
+                      layout.isCozy ? 'text-left' : 'flex-1',
+                    )}
+                  >
                     If this is an emergency, please call 119 immediately.
                   </Text>
                 </AppCard>
               ) : null}
 
               {dataError ? (
-                <AppCard className="flex-row items-center gap-3 border border-destructive/40 bg-destructive/10 p-4">
+                <AppCard
+                  className={cn(
+                    'flex-row flex-wrap items-center gap-3 border border-destructive/40 bg-destructive/10 p-4',
+                    layout.isCozy && 'flex-col items-start text-left',
+                  )}
+                >
                   <View className="h-9 w-9 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={16} color="#B91C1C" />
                   </View>
-                  <View className="flex-1 gap-1">
+                  <View className={cn('gap-1', layout.isCozy ? 'w-full' : 'flex-1')}>
                     <Text className="text-sm font-semibold text-destructive">Some data failed to load</Text>
                     <Text className="text-xs text-destructive/80" numberOfLines={2}>
                       {dataError}
@@ -459,7 +484,7 @@ export default function Home() {
                     size="sm"
                     variant="secondary"
                     onPress={loadDashboardData}
-                    className="h-9 rounded-full px-3"
+                    className={cn('h-9 rounded-full px-3', layout.isCozy && 'w-full justify-center')}
                     disabled={dataLoading}
                   >
                     <Text className="text-[12px] text-foreground">Retry</Text>
@@ -500,7 +525,12 @@ export default function Home() {
               <Animated.View style={animStyle(sectionAnims[0])}>
                 <Card>
                   <CardHeader title="Overview" tone="ring" />
-                      <View className="mt-3 flex-row gap-3">
+                      <View
+                        className={cn(
+                          'mt-3 gap-3',
+                          layout.isCozy ? 'flex-col' : 'flex-row',
+                        )}
+                      >
                         <Kpi
                           label="Pending reports"
                           value={overview.pendingReports}
@@ -860,10 +890,13 @@ const IconTileButton: FC<Tile> = ({
   variant = 'default',
   count,
 }) => {
+  const layout = useResponsiveLayout();
   const isSecondary = variant === 'secondary';
   const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
   const circleTint = isSecondary ? '#E0F2F1' : '#E0EAFF';
   const hasBadge = typeof count === 'number' && count > 0;
+  const cardPadding = layout.isCozy ? 'px-5 py-5' : 'px-6 py-6';
+  const minHeight = layout.isCozy ? 136 : 148;
 
   return (
     <Pressable
@@ -873,7 +906,8 @@ const IconTileButton: FC<Tile> = ({
       style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
       <AppCard
         translucent={isSecondary}
-        className="relative min-h-[148px] items-center justify-center gap-3 px-6 py-6"
+        className={cn('relative items-center justify-center gap-3', cardPadding)}
+        style={{ minHeight }}
       >
         {hasBadge ? <Pill label={String(count)} tone="primary" className="absolute right-4 top-4" /> : null}
         <View
@@ -933,6 +967,7 @@ const List: FC<{
   emptyTone = 'ring',
   onItemPress,
 }) => {
+  const layout = useResponsiveLayout();
   if (!items || items.length === 0) {
     return (
       <AppCard className={cn('mt-3', className)}>
@@ -944,17 +979,24 @@ const List: FC<{
     <View className={cn('mt-3 gap-3', className)}>
       {items.map((it) => {
         const RowContent = (
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="flex-1 flex-row items-center gap-3">
+          <View
+            className={cn(
+              'flex-row flex-wrap items-center gap-3',
+              layout.isCozy ? 'justify-start' : 'justify-between',
+            )}
+          >
+            <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-3">
               <View className={`h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG_FAINT[it.tone]}`}>
                 <it.icon size={20} color="#0F172A" />
               </View>
-              <View className="flex-1 gap-1">
+              <View className="min-w-0 flex-1 gap-1">
                 <Text className="text-sm font-medium text-foreground">{it.title}</Text>
                 {it.meta ? <Text className={`text-xs ${TONE_TEXT[it.tone]}`}>{it.meta}</Text> : null}
               </View>
             </View>
-            <ChevronRight size={16} color="#94A3B8" />
+            <View className="ml-auto flex-row items-center">
+              <ChevronRight size={16} color="#94A3B8" />
+            </View>
           </View>
         );
 
@@ -1036,6 +1078,11 @@ const ChatbotWidget: FC<{
   message: string;
   setMessage: (v: string) => void;
 }> = ({ open, onToggle, message, setMessage }) => {
+  const { width: screenWidth } = useWindowDimensions();
+  const contentWidth = Math.max(screenWidth - 40, 0);
+  const desiredWidth = Math.max(280, screenWidth - 48);
+  const cardWidth = contentWidth > 0 ? Math.min(420, desiredWidth, contentWidth) : Math.min(420, desiredWidth);
+
   if (!open) {
     return (
       <Button
@@ -1049,7 +1096,7 @@ const ChatbotWidget: FC<{
   }
 
   return (
-    <AppCard className="w-[360px] max-w-[420px] gap-5 p-6">
+    <AppCard className="max-w-full gap-5 p-6" style={{ width: cardWidth, alignSelf: 'flex-end' }}>
       <View className="flex-row items-center justify-between gap-3">
         <View className="flex-row items-center gap-3">
           <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
