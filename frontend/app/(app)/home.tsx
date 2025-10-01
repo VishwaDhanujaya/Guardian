@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
+import { fetchAlerts, fetchLostItems, fetchReports, formatRelativeTime, type AlertRow, type LostItemDetail, type ReportSummary } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
 
@@ -110,129 +111,196 @@ export default function Home() {
     return profile.name?.trim?.() || profile.username || 'neighbor';
   }, [profile]);
 
-  // Overview (mock) — ONLY pending + ongoing
-  const overview = useMemo(() => ({ pendingReports: 5, ongoingReports: 7 }), []);
-  const counts = useMemo(
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [reports, setReports] = useState<ReportSummary[]>([]);
+  const [lostItems, setLostItems] = useState<LostItemDetail[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const loadDashboardData = useCallback(async () => {
+    if (!session) {
+      setReports([]);
+      setAlerts([]);
+      setLostItems([]);
+      return;
+    }
+
+    setDataLoading(true);
+    setDataError(null);
+
+    const [reportsResult, alertsResult, lostResult] = await Promise.allSettled([
+      fetchReports(),
+      fetchAlerts(),
+      fetchLostItems(),
+    ]);
+
+    const failures: string[] = [];
+
+    if (reportsResult.status === 'fulfilled') {
+      setReports(reportsResult.value);
+    } else {
+      failures.push('reports');
+    }
+
+    if (alertsResult.status === 'fulfilled') {
+      setAlerts(alertsResult.value);
+    } else {
+      failures.push('alerts');
+    }
+
+    if (lostResult.status === 'fulfilled') {
+      setLostItems(lostResult.value);
+    } else {
+      failures.push('lost & found');
+    }
+
+    if (failures.length > 0) {
+      const message = `Failed to load ${failures.join(', ')} data`;
+      setDataError(message);
+      toast.error(message);
+    }
+
+    setDataLoading(false);
+  }, [session]);
+
+  const pendingReports = useMemo(
+    () => reports.filter((report) => report.status === 'New' || report.status === 'In Review'),
+    [reports],
+  );
+  const ongoingReports = useMemo(
     () =>
-      role === 'officer'
-        ? { incidents: 12, lostFound: 4, alerts: 3 }
-        : { reportIncident: 0, lostFound: 2, myReports: 1, alerts: 3 },
-    [role]
+      reports.filter((report) =>
+        report.status === 'Approved' ||
+        report.status === 'Assigned' ||
+        report.status === 'Ongoing',
+      ),
+    [reports],
   );
 
-  // Lists (mock)
-  const citizenAlertsAll = useMemo(
-    () => [
-      // Categories removed – alerts now display without grouping
-      {
-        id: 'a1',
-        title: 'Road closure at Main St',
-        meta: 'Until 6 PM',
-        icon: AlertTriangle,
-        tone: 'destructive' as Tone,
-      },
-      {
-        id: 'a2',
-        title: 'Weather advisory: heavy rain',
-        meta: 'Today',
-        icon: BellRing,
-        tone: 'primary' as Tone,
-      },
-      {
-        id: 'a3',
-        title: 'Power maintenance: Sector 12',
-        meta: 'Tomorrow',
-        icon: Megaphone,
-        tone: 'accent' as Tone,
-      },
-    ],
-    []
+  const overview = useMemo(
+    () => ({
+      pendingReports: pendingReports.length,
+      ongoingReports: ongoingReports.length,
+    }),
+    [pendingReports.length, ongoingReports.length],
   );
-  const citizenRecentAll = useMemo(
-    () => [
-      {
-        id: 'r1',
-        title: 'Reported: Streetlight outage',
-        meta: '2h ago · #1245',
+
+  const openLostItems = useMemo(
+    () => lostItems.filter((item) => item.status !== 'Returned'),
+    [lostItems],
+  );
+
+  const officerCounts = useMemo(
+    () => ({
+      incidents: reports.length,
+      lostFound: openLostItems.length,
+      alerts: alerts.length,
+    }),
+    [reports.length, openLostItems.length, alerts.length],
+  );
+
+  const citizenCounts = useMemo(
+    () => ({
+      lostFound: lostItems.length,
+      myReports: reports.length,
+      alerts: alerts.length,
+    }),
+    [lostItems.length, reports.length, alerts.length],
+  );
+
+  const citizenAlerts = useMemo<ListItem[]>(
+    () =>
+      alerts.slice(0, 4).map((alert) => ({
+        id: alert.id,
+        title: alert.title || 'Safety alert',
+        meta: [
+          formatAlertCategory(alert.type),
+          formatRelativeTime(alert.createdAt ?? null),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        icon: alertIconForType(alert.type),
+        tone: resolveAlertListTone(alert.type),
+      })),
+    [alerts],
+  );
+
+  const citizenRecent = useMemo<ListItem[]>(() => {
+    const items: ListItem[] = [];
+    reports.slice(0, 2).forEach((report) => {
+      items.push({
+        id: `report-${report.id}`,
+        title: `Reported: ${report.title}`,
+        meta: `${report.status} · ${report.reportedAgo}`,
         icon: FileText,
-        tone: 'primary' as Tone,
-      },
-      {
-        id: 'r2',
-        title: 'Found item: Wallet',
-        meta: 'Yesterday',
+        tone:
+          report.status === 'Resolved'
+            ? 'accent'
+            : report.status === 'New' || report.status === 'In Review'
+            ? 'primary'
+            : 'ring',
+      });
+    });
+
+    if (lostItems.length > 0) {
+      const first = lostItems[0];
+      items.push({
+        id: `lost-${first.id}`,
+        title: `Lost item: ${first.name}`,
+        meta: [first.status ?? 'New', formatRelativeTime(first.createdAt ?? null)]
+          .filter(Boolean)
+          .join(' · '),
         icon: PackageSearch,
-        tone: 'accent' as Tone,
-      },
-      {
-        id: 'r3',
-        title: 'Alert viewed: Rain advisory',
-        meta: 'Yesterday',
+        tone: 'accent',
+      });
+    }
+
+    if (alerts.length > 0) {
+      const firstAlert = alerts[0];
+      items.push({
+        id: `alert-${firstAlert.id}`,
+        title: `Alert viewed: ${firstAlert.title}`,
+        meta: formatRelativeTime(firstAlert.createdAt ?? null),
         icon: BellRing,
-        tone: 'ring' as Tone,
-      },
-    ],
-    []
+        tone: 'ring',
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [reports, lostItems, alerts]);
+
+  const officerQueue = useMemo<ListItem[]>(
+    () =>
+      reports
+        .filter((report) => report.status === 'New' || report.status === 'In Review')
+        .slice(0, 4)
+        .map((report) => ({
+          id: report.id,
+          title: report.title,
+          meta: `${report.suggestedPriority} · ${report.reportedAgo}`,
+          icon: report.suggestedPriority === 'Urgent' ? AlertTriangle : FileText,
+          tone: report.suggestedPriority === 'Urgent' ? 'destructive' : 'primary',
+        })),
+    [reports],
   );
 
-  // OFFICER: Incoming queue (PENDING INCIDENTS ONLY, routes to Manage Incidents → Pending)
-  const officerQueue = useMemo(
-    () => [
-      {
-        id: 'q1',
-        title: 'Overdue: Traffic accident',
-        meta: 'High · 1h',
-        icon: AlertTriangle,
-        tone: 'destructive' as Tone,
-      },
-      {
-        id: 'q2',
-        title: 'New: Vandalism report',
-        meta: 'Medium · 10m',
-        icon: FileText,
-        tone: 'primary' as Tone,
-      },
-      {
-        id: 'q3',
-        title: 'New: Suspicious activity',
-        meta: 'Medium · 5m',
-        icon: ClipboardList,
-        tone: 'ring' as Tone,
-      },
-    ],
-    []
-  );
-
-  // OFFICER: manage safety alerts preview
-  const safetyAlertsPreviewAll = useMemo(
-    () => [
-      {
-        id: 's1',
-        title: 'Draft alert: Parade route',
-        meta: 'Needs review',
+  const safetyAlertsPreviewAll = useMemo<ListItem[]>(
+    () =>
+      alerts.slice(0, 4).map((alert) => ({
+        id: alert.id,
+        title: alert.title || 'Safety alert',
+        meta: formatRelativeTime(alert.createdAt ?? null),
         icon: Megaphone,
-        tone: 'accent' as Tone,
-      },
-      {
-        id: 's2',
-        title: 'Scheduled: System maintenance',
-        meta: 'Sat 1–3 AM',
-        icon: Clock,
-        tone: 'ring' as Tone,
-      },
-    ],
-    []
+        tone: resolveAlertListTone(alert.type),
+      })),
+    [alerts],
   );
-
-  // Citizen alert lists (no category filtering)
-  const citizenAlerts = citizenAlertsAll;
-  const citizenRecent = citizenRecentAll;
 
   // Conditional alert banner
   const showBanner =
     role === 'officer'
       ? officerQueue.some((i) => i.tone === 'destructive')
-      : citizenAlertsAll.some((i) => i.tone === 'destructive');
+      : citizenAlerts.some((i) => i.tone === 'destructive');
 
   // Chatbot (citizen only)
   const [chatOpen, setChatOpen] = useState(false);
@@ -246,14 +314,15 @@ export default function Home() {
       return;
     }
     setRefreshing(true);
-    refreshProfile()
-      .catch(() => {
+    Promise.all([
+      refreshProfile().catch(() => {
         toast.error('Failed to refresh profile');
-      })
-      .finally(() => {
-        setRefreshing(false);
-      });
-  }, [refreshProfile, session]);
+      }),
+      loadDashboardData().catch(() => {}),
+    ]).finally(() => {
+      setRefreshing(false);
+    });
+  }, [session, refreshProfile, loadDashboardData]);
 
   const onSignOut = () => router.replace('/login');
 
@@ -264,11 +333,24 @@ export default function Home() {
     });
   }, [profile, profileLoading, refreshProfile]);
 
-  // KPI trends (optional visuals kept, values illustrative)
-  const trends = {
-    pendingReports: { dir: 'up' as const, pct: 4, tone: 'primary' as Tone },
-    ongoingReports: { dir: 'up' as const, pct: 11, tone: 'ring' as Tone },
-  };
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData, role]);
+
+  // KPI trends (simple counts mapped to up-trend chips when data exists)
+  const trends = useMemo(
+    () => ({
+      pendingReports:
+        pendingReports.length > 0
+          ? { dir: 'up' as const, pct: pendingReports.length, tone: 'primary' as Tone }
+          : undefined,
+      ongoingReports:
+        ongoingReports.length > 0
+          ? { dir: 'up' as const, pct: ongoingReports.length, tone: 'ring' as Tone }
+          : undefined,
+    }),
+    [pendingReports.length, ongoingReports.length],
+  );
 
   // Entrance animations
   const headerAnim = useRef(new Animated.Value(0.9)).current;
@@ -362,6 +444,29 @@ export default function Home() {
                 </AppCard>
               ) : null}
 
+              {dataError ? (
+                <AppCard className="flex-row items-center gap-3 border border-destructive/40 bg-destructive/10 p-4">
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-destructive/10">
+                    <AlertTriangle size={16} color="#B91C1C" />
+                  </View>
+                  <View className="flex-1 gap-1">
+                    <Text className="text-sm font-semibold text-destructive">Some data failed to load</Text>
+                    <Text className="text-xs text-destructive/80" numberOfLines={2}>
+                      {dataError}
+                    </Text>
+                  </View>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onPress={loadDashboardData}
+                    className="h-9 rounded-full px-3"
+                    disabled={dataLoading}
+                  >
+                    <Text className="text-[12px] text-foreground">Retry</Text>
+                  </Button>
+                </AppCard>
+              ) : null}
+
               <AppCard className="gap-4">
                 <SectionHeader
                   eyebrow="Today"
@@ -423,20 +528,20 @@ export default function Home() {
                             label: 'Manage incidents',
                             icon: Shield,
                             onPress: goManageIncidentsPending,
-                            count: counts.incidents,
+                            count: officerCounts.incidents,
                           }, // left row 1
                           {
                             label: 'Lost items',
                             icon: PackageSearch,
                             onPress: goOfficerLostPending,
                             variant: 'secondary',
-                            count: counts.lostFound,
+                            count: officerCounts.lostFound,
                           }, // right row 1
                           {
                             label: 'Safety alerts',
                             icon: BellRing,
                             onPress: goManageAlerts,
-                            count: counts.alerts,
+                            count: officerCounts.alerts,
                           }, // left row 2
                           {
                             label: 'Found items',
@@ -460,9 +565,13 @@ export default function Home() {
                       <List
                         items={officerQueue}
                         className="mt-2"
-                        emptyTitle="No items in the queue"
-                        emptySubtitle="You’re all caught up. New reports will appear here."
-                        emptyIcon={Inbox}
+                        emptyTitle={dataLoading ? 'Loading queue…' : 'No items in the queue'}
+                        emptySubtitle={
+                          dataLoading
+                            ? 'Syncing the latest incident reports.'
+                            : 'You’re all caught up. New reports will appear here.'
+                        }
+                        emptyIcon={dataLoading ? Clock : Inbox}
                         emptyTone="ring"
                         onItemPress={goManageIncidentsPending}
                       />
@@ -480,9 +589,13 @@ export default function Home() {
                       <List
                         items={safetyAlertsPreviewAll}
                         className="mt-2"
-                        emptyTitle="No safety alerts"
-                        emptySubtitle="When there’s something new, it’ll show up here."
-                        emptyIcon={Inbox}
+                        emptyTitle={dataLoading ? 'Loading alerts…' : 'No safety alerts'}
+                        emptySubtitle={
+                          dataLoading
+                            ? 'Retrieving active alerts from the server.'
+                            : 'When there’s something new, it’ll show up here.'
+                        }
+                        emptyIcon={dataLoading ? Clock : Inbox}
                         emptyTone="accent"
                         onItemPress={goManageAlerts}
                       />
@@ -502,20 +615,20 @@ export default function Home() {
                             icon: PackageSearch,
                             onPress: goLostFoundCitizen,
                             variant: 'secondary',
-                            count: counts.lostFound,
+                            count: citizenCounts.lostFound,
                           },
                           {
                             label: 'My Reports',
                             icon: ClipboardList,
                             onPress: goMyReports,
-                            count: counts.myReports,
+                            count: citizenCounts.myReports,
                           },
                           {
                             label: 'Safety Alerts',
                             icon: BellRing,
                             onPress: goCitizenAlerts,
                             variant: 'secondary',
-                            count: counts.alerts,
+                            count: citizenCounts.alerts,
                           },
                         ]}
                       />
@@ -534,10 +647,14 @@ export default function Home() {
                       <List
                         items={citizenAlerts}
                         className="mt-2"
-                        emptyTitle="No nearby alerts"
-                        emptySubtitle="Great news — nothing urgent in your area."
-                        emptyIcon={Inbox}
-                        emptyTone="primary"
+                        emptyTitle={dataLoading ? 'Loading alerts…' : 'No nearby alerts'}
+                        emptySubtitle={
+                          dataLoading
+                            ? 'Fetching the latest safety notifications.'
+                            : 'Great news — nothing urgent in your area.'
+                        }
+                        emptyIcon={dataLoading ? Clock : Inbox}
+                        emptyTone={dataLoading ? 'ring' : 'primary'}
                       />
                     </Card>
                   </Animated.View>
@@ -553,9 +670,13 @@ export default function Home() {
                       <Timeline
                         items={citizenRecent}
                         className="mt-3"
-                        emptyTitle="No recent activity"
-                        emptySubtitle="Your actions and updates will appear here."
-                        emptyIcon={Inbox}
+                        emptyTitle={dataLoading ? 'Loading activity…' : 'No recent activity'}
+                        emptySubtitle={
+                          dataLoading
+                            ? 'Pulling the latest interactions from the server.'
+                            : 'Your actions and updates will appear here.'
+                        }
+                        emptyIcon={dataLoading ? Clock : Inbox}
                         emptyTone="ring"
                       />
                     </Card>
@@ -581,6 +702,44 @@ function getGreeting(hour: number): 'Good morning' | 'Good afternoon' | 'Good ev
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
+}
+
+function formatAlertCategory(type?: string): string {
+  if (!type) return 'General';
+  return type
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function resolveAlertListTone(type?: string): Tone {
+  if (!type) return 'ring';
+  const key = type.toLowerCase();
+  if (key.includes('emergency') || key.includes('urgent') || key.includes('critical')) {
+    return 'destructive';
+  }
+  if (key.includes('weather') || key.includes('storm') || key.includes('rain')) {
+    return 'primary';
+  }
+  if (key.includes('maintenance') || key.includes('power') || key.includes('utility')) {
+    return 'accent';
+  }
+  return 'ring';
+}
+
+function alertIconForType(type?: string): IconType {
+  const key = type?.toLowerCase() ?? '';
+  if (key.includes('emergency') || key.includes('critical')) {
+    return AlertTriangle;
+  }
+  if (key.includes('weather') || key.includes('storm') || key.includes('rain')) {
+    return BellRing;
+  }
+  if (key.includes('power') || key.includes('maintenance') || key.includes('utility')) {
+    return SunMedium;
+  }
+  return Megaphone;
 }
 
 /* -------------------- UI Partials -------------------- */
