@@ -863,11 +863,11 @@ type Tile = {
 const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
   const layout = useResponsiveLayout();
   const effectiveWidth = Math.min(layout.maxContentWidth, layout.width);
-  const singleColumn = effectiveWidth < 420;
+  const singleColumn = effectiveWidth < 320;
 
   if (singleColumn) {
     return (
-      <View className="mt-4 flex-col gap-3">
+      <View className="mt-4 gap-3">
         {tiles.map((tile, idx) => (
           <View key={`${tile.label}-${idx}`} className="w-full">
             <IconTileButton {...tile} />
