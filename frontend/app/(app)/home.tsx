@@ -883,15 +883,18 @@ const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
   }
 
   return (
-    <View className="mt-4 gap-3">
+    <View className="mt-4 flex-col gap-3">
       {rows.map((row, rowIdx) => (
-        <View key={rowIdx} className="flex-row gap-3">
+        <View
+          key={rowIdx}
+          className={cn('flex-row gap-3', layout.isCozy ? 'flex-col' : undefined)}
+        >
           {row.map((tile, idx) => (
-            <View key={`${tile.label}-${idx}`} className="flex-1">
+            <View key={`${tile.label}-${idx}`} className={layout.isCozy ? 'w-full' : 'flex-1'}>
               <IconTileButton {...tile} />
             </View>
           ))}
-          {row.length === 1 ? <View className="flex-1" /> : null}
+          {row.length === 1 && !layout.isCozy ? <View className="flex-1" /> : null}
         </View>
       ))}
     </View>
