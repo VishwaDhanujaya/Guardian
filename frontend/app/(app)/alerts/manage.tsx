@@ -12,7 +12,6 @@ import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { AlertRow, deleteAlert, fetchAlerts } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 import { MapPin, Megaphone, Pencil, Plus, Trash2 } from "lucide-react-native";
 
@@ -22,8 +21,6 @@ export default function ManageAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
   const isOfficer = resolvedRole === "officer";
-  const layout = useResponsiveLayout();
-
   const navigation = useNavigation<any>();
   const goBack = useCallback(() => {
     if (navigation?.canGoBack?.()) navigation.goBack();
@@ -59,6 +56,16 @@ export default function ManageAlerts() {
   }, [reload]);
 
   const visibleRows = useMemo(() => [...rows], [rows]);
+  const useTwoColumnLayout = visibleRows.length > 1;
+  const twoColumnRows = useMemo(() => {
+    if (!useTwoColumnLayout) return [] as AlertRow[][];
+    const groups: AlertRow[][] = [];
+    for (let i = 0; i < visibleRows.length; i += 2) {
+      groups.push(visibleRows.slice(i, i + 2));
+    }
+    return groups;
+  }, [useTwoColumnLayout, visibleRows]);
+  const alertCardPadding = "px-4 py-4";
 
   const createNew = () => {
     if (!isOfficer) return;
@@ -112,7 +119,7 @@ export default function ManageAlerts() {
               description="Draft a message when there’s an urgent update citizens should see."
             />
 
-            <Button className={cn('h-11 rounded-2xl px-4', layout.isCozy && 'w-full justify-center')} onPress={createNew}>
+            <Button className="h-11 rounded-2xl px-4" onPress={createNew}>
               <View className="flex-row items-center justify-center gap-2">
                 <Plus size={16} color="#FFFFFF" />
                 <Text className="text-[13px] text-primary-foreground">New alert</Text>
@@ -159,21 +166,85 @@ export default function ManageAlerts() {
                 {isOfficer ? "Tap “New alert” to publish one." : "Officers will post here when there’s news."}
               </Text>
             </View>
+          ) : useTwoColumnLayout ? (
+            twoColumnRows.map((row, rowIdx) => (
+              <View key={rowIdx} className="flex-row gap-3">
+                {row.map((it) => (
+                  <View key={it.id} className="flex-1">
+                    <Pressable
+                      className={cn(
+                        'flex-1 rounded-2xl border border-border bg-background',
+                        alertCardPadding,
+                      )}
+                      onPress={() => editAlert(it.id)}
+                      disabled={!isOfficer}
+                      android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
+                    >
+                      <View className="flex-row flex-wrap items-start justify-between gap-3">
+                        <View className="min-w-0 flex-1 pr-1">
+                          <Text className="text-base font-medium text-foreground" numberOfLines={2}>
+                            {it.title}
+                          </Text>
+                          <View className="mt-1 flex-row flex-wrap items-center gap-2">
+                            <MapPin size={14} color="#0F172A" />
+                            <Text className="text-xs text-muted-foreground">{it.type}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {it.description ? (
+                        <View className="mt-3 rounded-xl border border-border bg-muted px-3 py-2">
+                          <Text className="text-[12px] text-foreground">{it.description}</Text>
+                        </View>
+                      ) : null}
+
+                      {isOfficer ? (
+                        <View className="mt-3 flex-row flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-9 rounded-lg px-3"
+                            onPress={() => editAlert(it.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <Pencil size={14} color="#0F172A" />
+                              <Text className="text-[12px] text-foreground">Edit</Text>
+                            </View>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 rounded-lg px-3"
+                            onPress={() => deleteAlertRow(it.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <Trash2 size={14} color="#DC2626" />
+                              <Text className="text-[12px]" style={{ color: '#DC2626' }}>
+                                Remove
+                              </Text>
+                            </View>
+                          </Button>
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  </View>
+                ))}
+                {row.length === 1 ? <View className="flex-1" /> : null}
+              </View>
+            ))
           ) : (
             visibleRows.map((it) => (
               <Pressable
                 key={it.id}
-                className="rounded-2xl border border-border bg-background px-4 py-4"
+                className={cn(
+                  'rounded-2xl border border-border bg-background',
+                  alertCardPadding,
+                )}
                 onPress={() => editAlert(it.id)}
                 disabled={!isOfficer}
-                android_ripple={isOfficer ? { color: "rgba(0,0,0,0.04)" } : undefined}
+                android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
               >
-                <View
-                  className={cn(
-                    'flex-row flex-wrap items-start gap-3',
-                    layout.isCozy ? 'justify-start' : 'justify-between',
-                  )}
-                >
+                <View className="flex-row flex-wrap items-start justify-between gap-3">
                   <View className="min-w-0 flex-1 pr-1">
                     <Text className="text-base font-medium text-foreground" numberOfLines={2}>
                       {it.title}
@@ -193,7 +264,12 @@ export default function ManageAlerts() {
 
                 {isOfficer ? (
                   <View className="mt-3 flex-row flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')} onPress={() => editAlert(it.id)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-9 rounded-lg px-3"
+                      onPress={() => editAlert(it.id)}
+                    >
                       <View className="flex-row items-center gap-1">
                         <Pencil size={14} color="#0F172A" />
                         <Text className="text-[12px] text-foreground">Edit</Text>
@@ -201,13 +277,13 @@ export default function ManageAlerts() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="secondary"
-                      className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                      variant="outline"
+                      className="h-9 rounded-lg px-3"
                       onPress={() => deleteAlertRow(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
                         <Trash2 size={14} color="#DC2626" />
-                        <Text className="text-[12px]" style={{ color: "#DC2626" }}>
+                        <Text className="text-[12px]" style={{ color: '#DC2626' }}>
                           Remove
                         </Text>
                       </View>
