@@ -233,7 +233,10 @@ export default function ReportIncidents() {
           : "Incident submitted";
 
       toast.success(successMessage);
-      router.replace({ pathname: "/home", params: { role: resolvedRole } });
+      router.replace({
+        pathname: "/incidents/my-reports",
+        params: { role: resolvedRole },
+      });
     } catch (error: any) {
       const fallback = witnesses.some(isWitnessComplete)
         ? "Failed to submit incident and witnesses"
