@@ -2,6 +2,7 @@ const z = require("zod");
 const LostItemModel = require("../models/lost-item.model");
 const ReportImagesModel = require("../models/report-images.model");
 const personalDetailsService = require("./personal-details.service");
+const HttpError = require("../utils/http-error");
 
 class LostArticleService {
   articleValidation = z.object({
@@ -15,6 +16,8 @@ class LostArticleService {
     status: z.enum(["PENDING", "INVESTIGATING", "FOUND", "CLOSED"]),
     branch: z.string(),
   });
+
+  articleUpdateValidation = this.articleValidation.partial();
 
   /**
    * @returns {Promise<LostItemModel>}
@@ -98,6 +101,81 @@ class LostArticleService {
     if (lostArticle && lostArticle.user_id === user_id) {
       return true;
     }
+  }
+
+  async updateById(id, body, user_id, is_officer = false) {
+    if (!id || Number.isNaN(Number(id))) {
+      throw new HttpError({ code: 400, clientMessage: "Invalid lost article id" });
+    }
+
+    const canModifyLostArticle = await this.canModify(id, user_id, is_officer);
+
+    if (!canModifyLostArticle) {
+      throw new HttpError({ code: 401 });
+    }
+
+    /** @type {LostItemModel | null} */
+    const lostArticle = await LostItemModel.findById(id);
+
+    if (!lostArticle) {
+      return null;
+    }
+
+    const updateBody = this.articleUpdateValidation.parse(body ?? {});
+
+    if (Object.keys(updateBody).length === 0) {
+      return lostArticle;
+    }
+
+    if (updateBody.name !== undefined) {
+      lostArticle.name = updateBody.name;
+    }
+    if (updateBody.description !== undefined) {
+      lostArticle.description = updateBody.description;
+    }
+    if (updateBody.serial_number !== undefined) {
+      lostArticle.serial_number = updateBody.serial_number;
+    }
+    if (updateBody.color !== undefined) {
+      lostArticle.color = updateBody.color;
+    }
+    if (updateBody.model !== undefined) {
+      lostArticle.model = updateBody.model;
+    }
+    if (updateBody.longitude !== undefined) {
+      lostArticle.longitude = updateBody.longitude;
+    }
+    if (updateBody.latitude !== undefined) {
+      lostArticle.latitude = updateBody.latitude;
+    }
+    if (updateBody.status !== undefined) {
+      lostArticle.status = updateBody.status;
+    }
+    if (updateBody.branch !== undefined) {
+      lostArticle.branch = updateBody.branch;
+    }
+
+    return await lostArticle.save();
+  }
+
+  async updateStatus(id, status, user_id, is_officer = false) {
+    const statusValidation = z.enum([
+      "PENDING",
+      "INVESTIGATING",
+      "FOUND",
+      "CLOSED",
+    ]);
+
+    const parsedStatus = statusValidation.parse(status);
+
+    const updated = await this.updateById(
+      id,
+      { status: parsedStatus },
+      user_id,
+      is_officer,
+    );
+
+    return updated;
   }
 
   /**

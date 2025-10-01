@@ -1,7 +1,15 @@
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
-import { Animated, Keyboard, Pressable, View, useWindowDimensions } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Keyboard,
+  Pressable,
+  RefreshControl,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { toast } from "@/components/toast";
@@ -10,6 +18,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
+import {
+  addLostItemNote,
+  fetchLostItemNotes,
+  fetchLostItems,
+  ItemNote,
+  LostFrontendStatus,
+  LostItemDetail,
+  updateLostItemStatus,
+} from "@/lib/api";
 
 import {
   AlertTriangle,
@@ -28,8 +45,6 @@ type Role = "citizen" | "officer";
 type Priority = "Urgent" | "Normal" | "Low";
 type StatusLost = "New" | "In Review" | "Approved" | "Assigned" | "Searching" | "Returned";
 
-type Note = { id: string; text: string; at: string; by: string };
-
 type Row = {
   id: string;
   title: string;
@@ -37,12 +52,16 @@ type Row = {
   status: StatusLost;
   suggestedPriority: Priority;
   reportedAgo: string;
-  notes?: Note[];
+  notes?: ItemNote[];
   showUpdate?: boolean;
   showNotes?: boolean;
   newNoteDraft?: string;
   newNoteHeight?: number;
   statusDraft?: StatusLost;
+  notesLoaded?: boolean;
+  notesLoading?: boolean;
+  statusUpdating?: boolean;
+  noteSubmitting?: boolean;
 };
 
 type TabKey = "pending" | "searching" | "returned";
@@ -60,6 +79,59 @@ const statusWeight: Record<StatusLost, number> = {
   Assigned: 3,
   Searching: 2,
   Returned: 1,
+};
+
+const statusPriorityMap: Record<StatusLost, Priority> = {
+  New: "Urgent",
+  "In Review": "Urgent",
+  Approved: "Normal",
+  Assigned: "Normal",
+  Searching: "Normal",
+  Returned: "Low",
+};
+
+const formatRelativeTime = (input?: string | null): string => {
+  if (!input) return "Just now";
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) return input;
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return parsed.toLocaleDateString();
+};
+
+const toStatusLost = (status?: LostFrontendStatus): StatusLost =>
+  (status as StatusLost) ?? "New";
+
+const buildRow = (item: LostItemDetail, previous?: Row): Row => {
+  const status = toStatusLost(item.status);
+  const titleParts = [`Lost: ${item.name || "Item"}`];
+  if (item.color) {
+    titleParts[0] += ` · ${item.color}`;
+  }
+  return {
+    id: item.id,
+    title: titleParts[0],
+    citizen: item.reportedBy ?? `Citizen #${item.id}`,
+    status,
+    suggestedPriority: statusPriorityMap[status] ?? "Normal",
+    reportedAgo: formatRelativeTime(item.createdAt),
+    notes: previous?.notes ?? [],
+    showUpdate: false,
+    showNotes: previous?.showNotes ?? false,
+    newNoteDraft: previous?.newNoteDraft ?? "",
+    newNoteHeight: previous?.newNoteHeight,
+    statusDraft: undefined,
+    notesLoaded: previous?.notesLoaded ?? (previous?.notes?.length ?? 0) > 0,
+    notesLoading: false,
+    statusUpdating: false,
+    noteSubmitting: false,
+  };
 };
 
 const isTabKey = (v: any): v is TabKey => v === "pending" || v === "searching" || v === "returned";
@@ -83,18 +155,41 @@ export default function OfficerLost() {
     transform: [{ translateY: mount.interpolate({ inputRange: [0.9, 1], outputRange: [6, 0] }) }],
   } as const;
 
-  const [rows, setRows] = useState<Row[]>([
-    { id: "l1", title: "Lost: Wallet · Brown leather", citizen: "Alex J.", status: "In Review", suggestedPriority: "Normal", reportedAgo: "12m ago", notes: [] },
-    { id: "l2", title: "Lost: Phone · Samsung black", citizen: "Priya K.", status: "Approved", suggestedPriority: "Urgent", reportedAgo: "2h ago", notes: [] },
-    { id: "l3", title: "Lost: Backpack · Blue", citizen: "Omar R.", status: "Searching", suggestedPriority: "Normal", reportedAgo: "4h ago", notes: [] },
-    { id: "l4", title: "Lost: Watch · Silver", citizen: "Jin L.", status: "Returned", suggestedPriority: "Low", reportedAgo: "1d ago", notes: [] },
-    { id: "l5", title: "Lost: ID Card", citizen: "Sara D.", status: "New", suggestedPriority: "Low", reportedAgo: "9m ago", notes: [] },
-  ]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadRows = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      mode === "initial" ? setLoading(true) : setRefreshing(true);
+      try {
+        const items = await fetchLostItems();
+        setRows((previous) => {
+          const previousMap = new Map(previous.map((row) => [row.id, row]));
+          return items.map((item) => buildRow(item, previousMap.get(item.id)));
+        });
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load lost items");
+      } finally {
+        mode === "initial" ? setLoading(false) : setRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    loadRows("initial");
+  }, [loadRows]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
   useEffect(() => {
     if (isTabKey(tabParam)) setActiveTab(tabParam);
   }, [tabParam]);
+
+  const onRefresh = useCallback(() => {
+    loadRows("refresh");
+  }, [loadRows]);
 
   const tabBuckets = useMemo(() => {
     const pendingSet: StatusLost[] = ["New", "In Review"];
@@ -146,34 +241,128 @@ export default function OfficerLost() {
       ? "text-primary"
       : "text-foreground";
 
-  const toggleUpdatePanel = (id: string) =>
+  const toggleUpdatePanel = useCallback((id: string) => {
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, showUpdate: !r.showUpdate, showNotes: false, statusDraft: r.showUpdate ? undefined : r.status }
-          : r,
-      ),
+      prev.map((r) => {
+        if (r.id !== id || r.statusUpdating) return r;
+        const nextShow = !r.showUpdate;
+        return {
+          ...r,
+          showUpdate: nextShow,
+          showNotes: nextShow ? false : r.showNotes,
+          statusDraft: nextShow ? r.status : undefined,
+        };
+      }),
     );
+  }, []);
 
-  const toggleNotesPanel = (id: string) =>
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, showNotes: !r.showNotes, showUpdate: false }
-          : r,
-      ),
-    );
+  const loadNotes = useCallback(
+    async (id: string) => {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, notesLoading: true, showNotes: true, showUpdate: false }
+            : r,
+        ),
+      );
+      try {
+        const loaded = await fetchLostItemNotes(id);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  notes: loaded,
+                  notesLoaded: true,
+                  notesLoading: false,
+                  showNotes: true,
+                  showUpdate: false,
+                }
+              : r,
+          ),
+        );
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load notes");
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, notesLoading: false, showNotes: false }
+              : r,
+          ),
+        );
+      }
+    },
+    [],
+  );
 
-  const approveRow = (id: string) =>
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Approved", showUpdate: false, statusDraft: undefined } : r)),
-    );
+  const toggleNotesPanel = useCallback(
+    (id: string) => {
+      setRows((prev) => {
+        const target = prev.find((r) => r.id === id);
+        if (!target) return prev;
+        if (target.showNotes) {
+          return prev.map((r) =>
+            r.id === id ? { ...r, showNotes: false } : r,
+          );
+        }
+        if (target.notesLoaded) {
+          return prev.map((r) =>
+            r.id === id ? { ...r, showNotes: true, showUpdate: false } : r,
+          );
+        }
+        loadNotes(id);
+        return prev.map((r) =>
+          r.id === id
+            ? { ...r, notesLoading: true, showNotes: true, showUpdate: false }
+            : r,
+        );
+      });
+    },
+    [loadNotes],
+  );
 
-  const rejectRow = (id: string) =>
-    setRows((prev) => {
-      toast.success("Lost report rejected");
-      return prev.filter((r) => r.id !== id);
-    });
+  const applyStatusChange = useCallback(
+    async (id: string, next: StatusLost, successMessage: string) => {
+      setRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, statusUpdating: true } : r)),
+      );
+      try {
+        const updated = await updateLostItemStatus(id, next as LostFrontendStatus);
+        setRows((prev) =>
+          prev.map((r) => {
+            if (r.id !== id) return r;
+            const merged = buildRow(updated, r);
+            return {
+              ...merged,
+              notes: r.notes,
+              notesLoaded: r.notesLoaded,
+              notesLoading: r.notesLoading,
+              showNotes: r.showNotes,
+              newNoteDraft: r.newNoteDraft,
+              newNoteHeight: r.newNoteHeight,
+              noteSubmitting: r.noteSubmitting,
+              statusDraft: undefined,
+            };
+          }),
+        );
+        toast.success(successMessage);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to update status");
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, statusUpdating: false } : r,
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  const approveRow = (id: string) => applyStatusChange(id, "Approved", "Lost report approved");
+
+  const rejectRow = (id: string) => applyStatusChange(id, "Returned", "Lost report closed");
 
   const setDraftNote = (id: string, text: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteDraft: text } : r)));
@@ -182,28 +371,43 @@ export default function OfficerLost() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteHeight: height } : r)));
 
   const addNote = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const text = (row.newNoteDraft ?? "").trim();
+    if (!text || row.noteSubmitting) return;
+
     setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const text = (r.newNoteDraft ?? "").trim();
-        if (!text) return r;
-        const nextNote: Note = {
-          id: `note_${Date.now()}`,
-          text,
-          at: new Date().toLocaleString(),
-          by: "Officer",
-        };
-        const next: Row = {
-          ...r,
-          notes: [...(r.notes ?? []), nextNote],
-          newNoteDraft: "",
-          newNoteHeight: undefined,
-          showNotes: true,
-        };
-        toast.success("Note added");
-        return next;
-      }),
+      prev.map((r) => (r.id === id ? { ...r, noteSubmitting: true } : r)),
     );
+
+    addLostItemNote(id, "Officer", text)
+      .then((created) => {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  notes: [...(r.notes ?? []), created],
+                  notesLoaded: true,
+                  noteSubmitting: false,
+                  newNoteDraft: "",
+                  newNoteHeight: undefined,
+                  showNotes: true,
+                }
+              : r,
+          ),
+        );
+        toast.success("Note added");
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Failed to add note");
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, noteSubmitting: false } : r,
+          ),
+        );
+      });
   };
 
   const TabButton = ({
@@ -250,6 +454,9 @@ export default function OfficerLost() {
         enableAutomaticScroll: true,
         keyboardShouldPersistTaps: "handled",
         extraScrollHeight: 120,
+        refreshControl: (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        ),
         onScrollBeginDrag: Keyboard.dismiss,
       }}
       contentClassName="px-5 pb-8"
@@ -286,7 +493,12 @@ export default function OfficerLost() {
             trailing={<Pill label={`${visibleRows.length} shown`} tone="primary" />}
           />
 
-          {visibleRows.length === 0 ? (
+          {loading ? (
+            <View className="items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background/60 p-6">
+              <ActivityIndicator color="#0F172A" />
+              <Text className="text-xs text-muted-foreground">Loading cases…</Text>
+            </View>
+          ) : visibleRows.length === 0 ? (
             <View className="items-center rounded-2xl border border-dashed border-border bg-background/60 p-6">
               <View className="h-14 w-14 items-center justify-center rounded-full bg-ring/10">
                 <Inbox size={28} color="#0F172A" />
@@ -366,38 +578,53 @@ export default function OfficerLost() {
                           <Button
                             size="sm"
                             variant={r.status === "New" || r.status === "In Review" ? "default" : "secondary"}
-                            disabled={!(r.status === "New" || r.status === "In Review")}
+                            disabled={
+                              !(r.status === "New" || r.status === "In Review") ||
+                              r.statusUpdating
+                            }
                             className="h-9 rounded-lg px-3"
                             onPress={() => approveRow(r.id)}
                           >
-                            <View className="flex-row items-center gap-1">
-                              <BadgeCheck
-                                size={14}
+                            {r.statusUpdating ? (
+                              <ActivityIndicator
                                 color={r.status === "New" || r.status === "In Review" ? "#FFFFFF" : "#0F172A"}
+                                size="small"
                               />
-                              <Text
-                                className={`text-[12px] ${
-                                  r.status === "New" || r.status === "In Review"
-                                    ? "text-primary-foreground"
-                                    : "text-foreground"
-                                }`}
-                              >
-                                Approve
-                              </Text>
-                            </View>
+                            ) : (
+                              <View className="flex-row items-center gap-1">
+                                <BadgeCheck
+                                  size={14}
+                                  color={r.status === "New" || r.status === "In Review" ? "#FFFFFF" : "#0F172A"}
+                                />
+                                <Text
+                                  className={`text-[12px] ${
+                                    r.status === "New" || r.status === "In Review"
+                                      ? "text-primary-foreground"
+                                      : "text-foreground"
+                                  }`}
+                                >
+                                  Approve
+                                </Text>
+                              </View>
+                            )}
                           </Button>
                           <Button
                             size="sm"
                             variant="secondary"
                             className="h-9 rounded-lg px-3"
                             onPress={() => rejectRow(r.id)}
+                            disabled={r.statusUpdating}
                           >
-                            <View className="flex-row items-center gap-1">
-                              <AlertTriangle size={14} color="#DC2626" />
-                              <Text className="text-[12px]" style={{ color: "#DC2626" }}>
-                                Reject
-                              </Text>
-                            </View>
+                            {r.statusUpdating ? (
+                              <ActivityIndicator color="#DC2626" size="small" />
+                            ) : (
+                              <View className="flex-row items-center gap-1">
+                                <AlertTriangle size={14} color="#DC2626" />
+                                <Text className="text-[12px]" style={{ color: "#DC2626" }}>
+                                  Reject
+                                </Text>
+                              </View>
+                            )}
                           </Button>
                         </>
                       ) : null}
@@ -407,6 +634,7 @@ export default function OfficerLost() {
                         variant="secondary"
                         className="ml-auto h-9 rounded-lg px-3"
                         onPress={() => toggleUpdatePanel(r.id)}
+                        disabled={r.statusUpdating}
                       >
                         <View className="flex-row items-center gap-1">
                           <ClipboardList size={14} color="#0F172A" />
@@ -421,6 +649,7 @@ export default function OfficerLost() {
                         variant="secondary"
                         className="h-9 rounded-lg px-3"
                         onPress={() => toggleNotesPanel(r.id)}
+                        disabled={r.notesLoading || r.noteSubmitting}
                       >
                         <View className="flex-row items-center gap-1">
                           <MessageSquare size={14} color="#0F172A" />
@@ -451,6 +680,7 @@ export default function OfficerLost() {
                                   active ? "border-transparent bg-foreground/10" : "border-border bg-background"
                                 }`}
                                 android_ripple={{ color: "rgba(0,0,0,0.06)" }}
+                                disabled={r.statusUpdating}
                               >
                                 <Text className={`text-xs ${active ? "text-foreground" : "text-muted-foreground"}`}>
                                   {opt}
@@ -466,6 +696,7 @@ export default function OfficerLost() {
                             size="sm"
                             className="h-9 rounded-lg px-3"
                             onPress={() => toggleUpdatePanel(r.id)}
+                            disabled={r.statusUpdating}
                           >
                             <Text className="text-[12px] text-foreground">Cancel</Text>
                           </Button>
@@ -474,17 +705,21 @@ export default function OfficerLost() {
                             className="h-9 rounded-lg px-3"
                             onPress={() => {
                               const target = r.statusDraft ?? r.status;
-                              setRows((prev) =>
-                                prev.map((x) =>
-                                  x.id === r.id
-                                    ? { ...x, status: target, statusDraft: undefined, showUpdate: false }
-                                    : x,
-                                ),
-                              );
-                              toast.success("Status updated");
+                              if (target === r.status) {
+                                toggleUpdatePanel(r.id);
+                                return;
+                              }
+                              applyStatusChange(r.id, target, "Status updated");
                             }}
+                            disabled={
+                              r.statusUpdating || (r.statusDraft ?? r.status) === r.status
+                            }
                           >
-                            <Text className="text-[12px] text-primary-foreground">Save</Text>
+                            {r.statusUpdating ? (
+                              <ActivityIndicator color="#FFFFFF" size="small" />
+                            ) : (
+                              <Text className="text-[12px] text-primary-foreground">Save</Text>
+                            )}
                           </Button>
                         </View>
                       </View>
@@ -500,7 +735,11 @@ export default function OfficerLost() {
                         </View>
 
                         <View className="px-4 pb-2 pt-3">
-                          {(r.notes ?? []).length > 0 ? (
+                          {r.notesLoading ? (
+                            <View className="items-center justify-center py-4">
+                              <ActivityIndicator color="#0F172A" size="small" />
+                            </View>
+                          ) : (r.notes ?? []).length > 0 ? (
                             (r.notes ?? []).slice().reverse().map((n) => (
                               <View key={n.id} className="mb-2 rounded-lg border border-border bg-background px-3 py-2">
                                 <Text className="text-[12px] text-foreground">{n.text}</Text>
@@ -530,6 +769,7 @@ export default function OfficerLost() {
                             multiline
                             numberOfLines={4}
                             scrollEnabled={false}
+                            editable={!r.noteSubmitting}
                           />
                         </View>
 
@@ -540,6 +780,7 @@ export default function OfficerLost() {
                               size="sm"
                               className="h-9 min-w-[96px] rounded-lg px-3"
                               onPress={() => toggleNotesPanel(r.id)}
+                              disabled={r.noteSubmitting}
                             >
                               <Text className="text-[12px] text-foreground">Close</Text>
                             </Button>
@@ -547,9 +788,15 @@ export default function OfficerLost() {
                               size="sm"
                               className="h-9 min-w-[96px] rounded-lg px-3"
                               onPress={() => addNote(r.id)}
-                              disabled={!(r.newNoteDraft ?? "").trim()}
+                              disabled={
+                                r.noteSubmitting || !(r.newNoteDraft ?? "").trim()
+                              }
                             >
-                              <Text className="text-[12px] text-primary-foreground">Add note</Text>
+                              {r.noteSubmitting ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                              ) : (
+                                <Text className="text-[12px] text-primary-foreground">Add note</Text>
+                              )}
                             </Button>
                           </View>
                         </View>
