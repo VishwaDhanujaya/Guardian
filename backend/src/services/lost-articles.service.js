@@ -65,15 +65,23 @@ class LostArticleService {
    * @returns {Promise<LostItemModel | null>}
    */
   async getById(id, user_id, is_officer = false) {
-    const result = is_officer
+    let result = is_officer
       ? await LostItemModel.findById(id)
       : await LostItemModel.findBy(["id", "user_id"], [id, user_id]);
 
-    if (result !== null) {
-      const personalDetails =
-        await personalDetailsService.findByLostArticleId(id);
-      result.personal_details = personalDetails.data;
+    if (!result && !is_officer) {
+      const fallback = await LostItemModel.findById(id);
+      if (fallback && ["FOUND", "CLOSED"].includes(fallback.status)) {
+        result = fallback;
+      }
     }
+
+    if (!result) {
+      return null;
+    }
+
+    const personalDetails = await personalDetailsService.findByLostArticleId(id);
+    result.personal_details = personalDetails.data;
 
     return result;
   }

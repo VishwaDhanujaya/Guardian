@@ -518,8 +518,9 @@ export async function fetchFoundItems(): Promise<FoundItem[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
   );
+  const returnedStatuses = new Set(["FOUND", "CLOSED"]);
   return (Array.isArray(data) ? data : [])
-    .filter((item) => item.status === "FOUND")
+    .filter((item) => returnedStatuses.has(item.status))
     .map((item) => ({
       id: toStringId(item.id),
       title: item.name ?? "Unknown item",
