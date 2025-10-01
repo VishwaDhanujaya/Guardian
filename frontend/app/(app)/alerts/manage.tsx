@@ -12,7 +12,6 @@ import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { AlertRow, deleteAlert, fetchAlerts } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 import { MapPin, Megaphone, Pencil, Plus, Trash2 } from "lucide-react-native";
 
@@ -22,8 +21,6 @@ export default function ManageAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
   const isOfficer = resolvedRole === "officer";
-  const layout = useResponsiveLayout();
-
   const navigation = useNavigation<any>();
   const goBack = useCallback(() => {
     if (navigation?.canGoBack?.()) navigation.goBack();
@@ -59,7 +56,7 @@ export default function ManageAlerts() {
   }, [reload]);
 
   const visibleRows = useMemo(() => [...rows], [rows]);
-  const useTwoColumnLayout = !layout.isCozy && visibleRows.length > 1;
+  const useTwoColumnLayout = visibleRows.length > 1;
   const twoColumnRows = useMemo(() => {
     if (!useTwoColumnLayout) return [] as AlertRow[][];
     const groups: AlertRow[][] = [];
@@ -68,7 +65,7 @@ export default function ManageAlerts() {
     }
     return groups;
   }, [useTwoColumnLayout, visibleRows]);
-  const alertCardPadding = layout.isCozy ? "px-3 py-3" : "px-4 py-4";
+  const alertCardPadding = "px-4 py-4";
 
   const createNew = () => {
     if (!isOfficer) return;
@@ -122,7 +119,7 @@ export default function ManageAlerts() {
               description="Draft a message when there’s an urgent update citizens should see."
             />
 
-            <Button className={cn('h-11 rounded-2xl px-4', layout.isCozy && 'w-full justify-center')} onPress={createNew}>
+            <Button className="h-11 rounded-2xl px-4" onPress={createNew}>
               <View className="flex-row items-center justify-center gap-2">
                 <Plus size={16} color="#FFFFFF" />
                 <Text className="text-[13px] text-primary-foreground">New alert</Text>
@@ -198,12 +195,7 @@ export default function ManageAlerts() {
                       disabled={!isOfficer}
                       android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
                     >
-                      <View
-                        className={cn(
-                          'flex-row flex-wrap items-start gap-3',
-                          layout.isCozy ? 'justify-start' : 'justify-between',
-                        )}
-                      >
+                      <View className="flex-row flex-wrap items-start justify-between gap-3">
                         <View className="min-w-0 flex-1 pr-1">
                           <Text className="text-base font-medium text-foreground" numberOfLines={2}>
                             {it.title}
@@ -226,7 +218,7 @@ export default function ManageAlerts() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                            className="h-9 rounded-lg px-3"
                             onPress={() => editAlert(it.id)}
                           >
                             <View className="flex-row items-center gap-1">
@@ -237,7 +229,7 @@ export default function ManageAlerts() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                            className="h-9 rounded-lg px-3"
                             onPress={() => deleteAlertRow(it.id)}
                           >
                             <View className="flex-row items-center gap-1">
@@ -267,12 +259,7 @@ export default function ManageAlerts() {
                 disabled={!isOfficer}
                 android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
               >
-                <View
-                  className={cn(
-                    'flex-row flex-wrap items-start gap-3',
-                    layout.isCozy ? 'justify-start' : 'justify-between',
-                  )}
-                >
+                <View className="flex-row flex-wrap items-start justify-between gap-3">
                   <View className="min-w-0 flex-1 pr-1">
                     <Text className="text-base font-medium text-foreground" numberOfLines={2}>
                       {it.title}
@@ -295,7 +282,7 @@ export default function ManageAlerts() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                      className="h-9 rounded-lg px-3"
                       onPress={() => editAlert(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
@@ -306,7 +293,7 @@ export default function ManageAlerts() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                      className="h-9 rounded-lg px-3"
                       onPress={() => deleteAlertRow(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
