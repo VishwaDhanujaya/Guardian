@@ -59,6 +59,16 @@ export default function ManageAlerts() {
   }, [reload]);
 
   const visibleRows = useMemo(() => [...rows], [rows]);
+  const useTwoColumnLayout = !layout.isCozy && visibleRows.length > 1;
+  const twoColumnRows = useMemo(() => {
+    if (!useTwoColumnLayout) return [] as AlertRow[][];
+    const groups: AlertRow[][] = [];
+    for (let i = 0; i < visibleRows.length; i += 2) {
+      groups.push(visibleRows.slice(i, i + 2));
+    }
+    return groups;
+  }, [useTwoColumnLayout, visibleRows]);
+  const alertCardPadding = layout.isCozy ? "px-3 py-3" : "px-4 py-4";
 
   const createNew = () => {
     if (!isOfficer) return;
@@ -90,7 +100,7 @@ export default function ManageAlerts() {
         extraScrollHeight: 120,
         onScrollBeginDrag: Keyboard.dismiss,
       }}
-      contentClassName="px-5 pb-8"
+      contentClassName={cn(layout.isCozy ? "px-4" : "px-5", "pb-8")}
     >
       <ScreenHeader
         title={isOfficer ? "Manage alerts" : "Safety alerts"}
@@ -106,7 +116,7 @@ export default function ManageAlerts() {
 
       {isOfficer ? (
         <Animated.View style={animStyle}>
-          <AppCard className="gap-4 p-5">
+          <AppCard className={cn("gap-4", layout.isCozy ? "p-4" : "p-5")}>
             <SectionHeader
               title="Create a new alert"
               description="Draft a message when there’s an urgent update citizens should see."
@@ -123,7 +133,7 @@ export default function ManageAlerts() {
       ) : null}
 
       <Animated.View style={animStyle}>
-        <AppCard className="gap-4 p-5">
+        <AppCard className={cn("gap-4", layout.isCozy ? "p-4" : "p-5")}>
           <SectionHeader
             title={isOfficer ? "Active alerts" : "Current alerts"}
             description={
@@ -135,12 +145,22 @@ export default function ManageAlerts() {
           />
 
           {loading ? (
-            <View className="items-center justify-center rounded-2xl border border-border bg-background/70 p-6">
+            <View
+              className={cn(
+                "items-center justify-center rounded-2xl border border-border bg-background/70",
+                layout.isCozy ? "p-4" : "p-6",
+              )}
+            >
               <ActivityIndicator color="#0F172A" />
               <Text className="mt-2 text-xs text-muted-foreground">Loading alerts…</Text>
             </View>
           ) : loadError ? (
-            <View className="items-center rounded-2xl border border-border bg-background/70 p-6">
+            <View
+              className={cn(
+                "items-center rounded-2xl border border-border bg-background/70",
+                layout.isCozy ? "p-4" : "p-6",
+              )}
+            >
               <Text className="font-semibold text-foreground">Unable to load alerts</Text>
               <Text className="mt-1 text-center text-xs text-muted-foreground">
                 Check your connection and try again.
@@ -150,7 +170,12 @@ export default function ManageAlerts() {
               </Button>
             </View>
           ) : visibleRows.length === 0 ? (
-            <View className="items-center rounded-2xl border border-dashed border-border bg-background/60 p-6">
+            <View
+              className={cn(
+                "items-center rounded-2xl border border-dashed border-border bg-background/60",
+                layout.isCozy ? "p-4" : "p-6",
+              )}
+            >
               <View className="h-14 w-14 items-center justify-center rounded-full bg-ring/10">
                 <Megaphone size={28} color="#0F172A" />
               </View>
@@ -159,14 +184,88 @@ export default function ManageAlerts() {
                 {isOfficer ? "Tap “New alert” to publish one." : "Officers will post here when there’s news."}
               </Text>
             </View>
+          ) : useTwoColumnLayout ? (
+            twoColumnRows.map((row, rowIdx) => (
+              <View key={rowIdx} className="flex-row gap-3">
+                {row.map((it) => (
+                  <View key={it.id} className="flex-1">
+                    <Pressable
+                      className={cn(
+                        'flex-1 rounded-2xl border border-border bg-background',
+                        alertCardPadding,
+                      )}
+                      onPress={() => editAlert(it.id)}
+                      disabled={!isOfficer}
+                      android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
+                    >
+                      <View
+                        className={cn(
+                          'flex-row flex-wrap items-start gap-3',
+                          layout.isCozy ? 'justify-start' : 'justify-between',
+                        )}
+                      >
+                        <View className="min-w-0 flex-1 pr-1">
+                          <Text className="text-base font-medium text-foreground" numberOfLines={2}>
+                            {it.title}
+                          </Text>
+                          <View className="mt-1 flex-row flex-wrap items-center gap-2">
+                            <MapPin size={14} color="#0F172A" />
+                            <Text className="text-xs text-muted-foreground">{it.type}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {it.description ? (
+                        <View className="mt-3 rounded-xl border border-border bg-muted px-3 py-2">
+                          <Text className="text-[12px] text-foreground">{it.description}</Text>
+                        </View>
+                      ) : null}
+
+                      {isOfficer ? (
+                        <View className="mt-3 flex-row flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                            onPress={() => editAlert(it.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <Pencil size={14} color="#0F172A" />
+                              <Text className="text-[12px] text-foreground">Edit</Text>
+                            </View>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                            onPress={() => deleteAlertRow(it.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <Trash2 size={14} color="#DC2626" />
+                              <Text className="text-[12px]" style={{ color: '#DC2626' }}>
+                                Remove
+                              </Text>
+                            </View>
+                          </Button>
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  </View>
+                ))}
+                {row.length === 1 ? <View className="flex-1" /> : null}
+              </View>
+            ))
           ) : (
             visibleRows.map((it) => (
               <Pressable
                 key={it.id}
-                className="rounded-2xl border border-border bg-background px-4 py-4"
+                className={cn(
+                  'rounded-2xl border border-border bg-background',
+                  alertCardPadding,
+                )}
                 onPress={() => editAlert(it.id)}
                 disabled={!isOfficer}
-                android_ripple={isOfficer ? { color: "rgba(0,0,0,0.04)" } : undefined}
+                android_ripple={isOfficer ? { color: 'rgba(0,0,0,0.04)' } : undefined}
               >
                 <View
                   className={cn(
@@ -193,7 +292,12 @@ export default function ManageAlerts() {
 
                 {isOfficer ? (
                   <View className="mt-3 flex-row flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')} onPress={() => editAlert(it.id)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
+                      onPress={() => editAlert(it.id)}
+                    >
                       <View className="flex-row items-center gap-1">
                         <Pencil size={14} color="#0F172A" />
                         <Text className="text-[12px] text-foreground">Edit</Text>
@@ -201,13 +305,13 @@ export default function ManageAlerts() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="secondary"
+                      variant="outline"
                       className={cn('h-9 rounded-lg px-3', layout.isCozy && 'flex-1 justify-center')}
                       onPress={() => deleteAlertRow(it.id)}
                     >
                       <View className="flex-row items-center gap-1">
                         <Trash2 size={14} color="#DC2626" />
-                        <Text className="text-[12px]" style={{ color: "#DC2626" }}>
+                        <Text className="text-[12px]" style={{ color: '#DC2626' }}>
                           Remove
                         </Text>
                       </View>
