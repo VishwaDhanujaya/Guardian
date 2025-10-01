@@ -1,7 +1,7 @@
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import type { ComponentType, ReactNode } from "react";
-import { forwardRef } from "react";
+import { forwardRef, useMemo } from "react";
 import {
   Pressable,
   ScrollView,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ChevronLeft } from "lucide-react-native";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 type AppScreenProps = {
   children: ReactNode;
@@ -40,32 +41,62 @@ export function AppScreen({
   floatingAction,
 }: AppScreenProps) {
   const ScrollCmp = ScrollComponent as ComponentType<any>;
+  const layout = useResponsiveLayout();
+
+  const bodyStyle = useMemo(
+    () => [styles.body, { paddingHorizontal: layout.horizontalPadding }],
+    [layout.horizontalPadding],
+  );
+  const scrollContentStyle = useMemo(
+    () => [
+      styles.scrollContent,
+      { paddingBottom: layout.isCompact ? 96 : 120 },
+      scrollViewProps?.contentContainerStyle,
+    ],
+    [layout.isCompact, scrollViewProps?.contentContainerStyle],
+  );
+  const innerStyle = useMemo(
+    () => [styles.inner, { maxWidth: layout.maxContentWidth }, contentStyle],
+    [contentStyle, layout.maxContentWidth],
+  );
+  const contentClasses = useMemo(
+    () => cn(layout.isCompact ? "gap-5" : "gap-6", contentClassName),
+    [contentClassName, layout.isCompact],
+  );
+  const nonScrollStyle = useMemo(
+    () => [styles.nonScroll, { gap: layout.sectionGap }],
+    [layout.sectionGap],
+  );
+  const fabStyle = useMemo(
+    () => [styles.fabSlot, { right: layout.horizontalPadding, bottom: layout.isCompact ? 16 : 20 }],
+    [layout.horizontalPadding, layout.isCompact],
+  );
 
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        <View style={styles.body}>
+        <View style={bodyStyle}>
           {scroll ? (
             <ScrollCmp
               showsVerticalScrollIndicator={false}
               {...scrollViewProps}
               className={cn("flex-1", className, scrollViewProps?.className)}
-              contentContainerStyle={[
-                styles.scrollContent,
-                scrollViewProps?.contentContainerStyle,
-                contentStyle,
-              ]}
+              contentContainerStyle={scrollContentStyle}
             >
-              <View className={cn("gap-6", contentClassName)}>{children}</View>
+              <View className={contentClasses} style={innerStyle}>
+                {children}
+              </View>
             </ScrollCmp>
           ) : (
-            <View className={cn("flex-1 gap-6", className)} style={styles.nonScroll}>
-              {children}
+            <View className={cn("flex-1", className)} style={nonScrollStyle}>
+              <View className={contentClasses} style={innerStyle}>
+                {children}
+              </View>
             </View>
           )}
 
           {floatingAction ? (
-            <View style={styles.fabSlot} pointerEvents="box-none">
+            <View style={fabStyle} pointerEvents="box-none">
               <View style={styles.fabInner}>{floatingAction}</View>
             </View>
           ) : null}
@@ -87,7 +118,7 @@ export const AppCard = forwardRef<View, AppCardProps>(
     return (
       <View
         ref={ref}
-        className={cn("rounded-2xl", className)}
+        className={cn("w-full rounded-2xl", className)}
         style={[
           styles.cardBase,
           translucent ? styles.cardTranslucent : styles.cardSolid,
@@ -218,14 +249,11 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
   },
   scrollContent: {
-    paddingBottom: 120,
     paddingTop: 12,
-    gap: 24,
   } as any,
   nonScroll: {
     paddingTop: 12,
@@ -259,6 +287,10 @@ const styles = StyleSheet.create({
   },
   cardTranslucent: {
     backgroundColor: "#F8FAFC",
+  },
+  inner: {
+    width: "100%",
+    alignSelf: "center",
   },
   backButtonShadow: {
     shadowColor: "#0F172A",
