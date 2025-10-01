@@ -128,7 +128,9 @@ function formatLocation(latitude?: number | null, longitude?: number | null): st
   return "Not specified";
 }
 
-function mapNote(note: any): Note {
+export type ItemNote = { id: string; text: string; at: string; by: string };
+
+function mapNote(note: any): ItemNote {
   const created = note?.created_at ?? note?.createdAt;
   return {
     id: toStringId(note?.id),
@@ -351,6 +353,47 @@ export async function addReportNote(
 /**
  * Lost & Found
  */
+type LostBackendStatus = "PENDING" | "INVESTIGATING" | "FOUND" | "CLOSED";
+export type LostFrontendStatus =
+  | "New"
+  | "In Review"
+  | "Approved"
+  | "Assigned"
+  | "Searching"
+  | "Returned";
+
+const LOST_STATUS_TO_FRONT: Record<
+  LostBackendStatus | "IN-PROGRESS",
+  LostFrontendStatus
+> = {
+  PENDING: "In Review",
+  "IN-PROGRESS": "Searching",
+  INVESTIGATING: "Searching",
+  FOUND: "Returned",
+  CLOSED: "Returned",
+} as const;
+
+const LOST_FRONT_TO_BACK: Record<LostFrontendStatus, LostBackendStatus> = {
+  New: "PENDING",
+  "In Review": "PENDING",
+  Approved: "INVESTIGATING",
+  Assigned: "INVESTIGATING",
+  Searching: "INVESTIGATING",
+  Returned: "FOUND",
+};
+
+function mapLostStatusFromBackend(status?: string | null): LostFrontendStatus {
+  if (!status) {
+    return "New";
+  }
+  const normalized = status.toUpperCase() as LostBackendStatus | "IN-PROGRESS";
+  return LOST_STATUS_TO_FRONT[normalized as LostBackendStatus] ?? "New";
+}
+
+function mapLostStatusToBackend(status: LostFrontendStatus): LostBackendStatus {
+  return LOST_FRONT_TO_BACK[status] ?? "PENDING";
+}
+
 export type FoundItem = { id: string; title: string; meta: string };
 
 export type FoundItemDetail = {
@@ -362,7 +405,7 @@ export type FoundItemDetail = {
   color?: string;
   lastLocation?: string;
   branch?: string;
-  status?: string;
+  status?: LostFrontendStatus;
   createdAt?: string | null;
 };
 
@@ -405,8 +448,15 @@ function mapLostItem(item: any): FoundItemDetail {
     color: item?.color ?? "",
     lastLocation: item?.latitude && item?.longitude ? formatLocation(item.latitude, item.longitude) : item?.last_location ?? "",
     branch: item?.branch ?? "",
-    status: item?.status ?? "",
+    status: mapLostStatusFromBackend(item?.status ?? undefined),
     createdAt: item?.created_at ?? null,
+  };
+}
+
+function mapLostItemDetail(item: any): LostItemDetail {
+  return {
+    ...mapLostItem(item),
+    reportedBy: item?.user_id ? `Citizen #${item.user_id}` : undefined,
   };
 }
 
@@ -421,10 +471,7 @@ export async function getLostItem(id: string): Promise<LostItemDetail> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
   );
-  return {
-    ...mapLostItem(data),
-    reportedBy: data?.user_id ? `Citizen #${data.user_id}` : undefined,
-  };
+  return mapLostItemDetail(data);
 }
 
 export async function reportLostItem(payload: LostItemPayload): Promise<void> {
@@ -444,4 +491,124 @@ export async function reportLostItem(payload: LostItemPayload): Promise<void> {
       headers: { "Content-Type": "multipart/form-data" },
     }),
   );
+}
+
+export async function fetchLostItems(): Promise<LostItemDetail[]> {
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
+  );
+  return (Array.isArray(data) ? data : []).map(mapLostItemDetail);
+}
+
+export type LostItemUpdatePayload = {
+  name?: string;
+  description?: string;
+  model?: string;
+  serial?: string;
+  color?: string;
+  branch?: string;
+  latitude?: number;
+  longitude?: number;
+  status?: LostFrontendStatus;
+};
+
+function toLostItemUpdateBody(payload: Partial<LostItemUpdatePayload>) {
+  const body: Record<string, unknown> = {};
+  if (payload.name !== undefined) body.name = payload.name;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.model !== undefined) body.model = payload.model;
+  if (payload.serial !== undefined) body.serial_number = payload.serial;
+  if (payload.color !== undefined) body.color = payload.color;
+  if (payload.branch !== undefined) body.branch = payload.branch;
+  if (payload.latitude !== undefined) body.latitude = payload.latitude;
+  if (payload.longitude !== undefined) body.longitude = payload.longitude;
+  if (payload.status !== undefined)
+    body.status = mapLostStatusToBackend(payload.status);
+  return body;
+}
+
+export async function updateLostItem(
+  id: string,
+  payload: Partial<LostItemUpdatePayload>,
+): Promise<LostItemDetail> {
+  const body = toLostItemUpdateBody(payload);
+  const data = await unwrap<any>(
+    apiService.patch<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`, body),
+  );
+  return mapLostItemDetail(data);
+}
+
+export async function updateLostItemStatus(
+  id: string,
+  status: LostFrontendStatus,
+): Promise<LostItemDetail> {
+  const data = await unwrap<any>(
+    apiService.patch<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}/status`, {
+      status: mapLostStatusToBackend(status),
+    }),
+  );
+  return mapLostItemDetail(data);
+}
+
+export async function fetchLostItemNotes(id: string): Promise<ItemNote[]> {
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
+      params: { resourceType: "lost-article" },
+    }),
+  );
+  return (Array.isArray(data) ? data : []).map(mapNote);
+}
+
+export async function addLostItemNote(
+  id: string,
+  subject: string,
+  content: string,
+): Promise<ItemNote> {
+  const data = await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>(`/api/v1/notes/resource/${id}`, {
+      subject,
+      content,
+    }, {
+      params: { resourceType: "lost-article" },
+    }),
+  );
+  return mapNote(data);
+}
+
+export type FoundItemPostPayload = {
+  name: string;
+  description?: string;
+  model?: string;
+  serial?: string;
+  color?: string;
+  branch: string;
+  latitude?: number;
+  longitude?: number;
+  status?: LostFrontendStatus;
+};
+
+export async function createFoundItem(
+  payload: FoundItemPostPayload,
+): Promise<LostItemDetail> {
+  const form = new FormData();
+  form.append("name", payload.name);
+  form.append("description", payload.description ?? "");
+  if (payload.serial) form.append("serial_number", payload.serial);
+  if (payload.color) form.append("color", payload.color);
+  if (payload.model) form.append("model", payload.model);
+  form.append("longitude", String(payload.longitude ?? 0));
+  form.append("latitude", String(payload.latitude ?? 0));
+  form.append(
+    "status",
+    mapLostStatusToBackend(payload.status ?? "Returned"),
+  );
+  form.append("branch", payload.branch);
+
+  const data = await unwrap<any>(
+    apiService.post<ApiEnvelope<any>>("/api/v1/lost-articles", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  );
+
+  return mapLostItemDetail(data);
 }

@@ -15,6 +15,7 @@ import {
   FoundItemDetail,
   getFoundItem,
   getLostItem,
+  ItemNote,
   LostFrontendStatus,
   LostItemDetail,
   type LostItemUpdatePayload,
@@ -59,11 +60,10 @@ export default function LostFoundView() {
     lastLocation: "",
   });
 
-  type Note = { id: string; text: string; at: string; by: string };
   const [status, setStatus] = useState<LostFrontendStatus>("New");
   const [statusDraft, setStatusDraft] = useState<LostFrontendStatus | null>(null);
   const [showUpdate, setShowUpdate] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<ItemNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [newNoteDraft, setNewNoteDraft] = useState("");
@@ -89,7 +89,7 @@ export default function LostFoundView() {
         });
 
         if (type === "lost") {
-          const currentStatus = (data as LostItemDetail)?.status as LostFrontendStatus | undefined;
+          const currentStatus = (data as LostItemDetail)?.status;
           if (currentStatus) setStatus(currentStatus);
           setStatusDraft(null);
           setNotesLoading(true);

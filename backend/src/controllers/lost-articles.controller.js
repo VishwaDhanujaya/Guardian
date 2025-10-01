@@ -1,6 +1,7 @@
 const lostArticleService = require("../services/lost-articles.service");
 const personalDetailsService = require("../services/personal-details.service");
 const HttpResponse = require("../utils/http-response-helper");
+const HttpError = require("../utils/http-error");
 
 class LostArticlesController {
   /**
@@ -59,7 +60,9 @@ class LostArticlesController {
    */
   async getById(req, res) {
     const id = req.params.id;
-    const lostArticle = await lostArticleService.getById(id, req.user);
+    const isOfficer = Boolean(req.officer);
+    const args = isOfficer ? [id, req.user, true] : [id, req.user];
+    const lostArticle = await lostArticleService.getById(...args);
 
     if (!lostArticle) {
       return new HttpResponse(404).sendStatus(res);
@@ -74,6 +77,40 @@ class LostArticlesController {
   async getAll(_, res) {
     const lostArticles = await lostArticleService.getAll();
     new HttpResponse(200, lostArticles).json(res);
+  }
+
+  async update(req, res) {
+    const id = req.params.id;
+
+    const updated = await lostArticleService.updateById(
+      id,
+      req.body,
+      req.user,
+      Boolean(req.officer),
+    );
+
+    if (!updated) {
+      return new HttpResponse(404).sendStatus(res);
+    }
+
+    new HttpResponse(200, updated).json(res);
+  }
+
+  async updateStatus(req, res) {
+    const id = req.params.id;
+
+    const updated = await lostArticleService.updateStatus(
+      id,
+      req.body?.status,
+      req.user,
+      Boolean(req.officer),
+    );
+
+    if (!updated) {
+      return new HttpResponse(404).sendStatus(res);
+    }
+
+    new HttpResponse(200, updated).json(res);
   }
 
   /**
