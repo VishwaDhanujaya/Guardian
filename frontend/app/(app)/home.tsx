@@ -31,6 +31,8 @@ import { Text } from '@/components/ui/text';
 import { fetchAlerts, fetchLostItems, fetchReports, formatRelativeTime, type AlertRow, type LostItemDetail, type ReportSummary } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+
 
 import {
   AlertTriangle,
@@ -95,6 +97,7 @@ export default function Home() {
     profileLoading,
     refreshProfile,
   } = useContext(AuthContext);
+  const layout = useResponsiveLayout();
 
   const role = useMemo<Role>(() => {
     if (params.role === 'officer') return 'officer';
@@ -442,22 +445,37 @@ export default function Home() {
           />
 
               {showBanner ? (
-                <AppCard className="flex-row items-center gap-3 border border-destructive/40 p-4">
+                <AppCard
+                  className={cn(
+                    'flex-row flex-wrap items-center gap-3 border border-destructive/40',
+                    layout.isCozy && 'flex-col items-start text-left',
+                  )}
+                >
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={18} color="#B91C1C" />
                   </View>
-                  <Text className="flex-1 text-[13px] text-destructive">
+                  <Text
+                    className={cn(
+                      'text-[13px] text-destructive',
+                      layout.isCozy ? 'text-left' : 'flex-1',
+                    )}
+                  >
                     If this is an emergency, please call 119 immediately.
                   </Text>
                 </AppCard>
               ) : null}
 
               {dataError ? (
-                <AppCard className="flex-row items-center gap-3 border border-destructive/40 bg-destructive/10 p-4">
+                <AppCard
+                  className={cn(
+                    'flex-row flex-wrap items-center gap-3 border border-destructive/40 bg-destructive/10 p-4',
+                    layout.isCozy && 'flex-col items-start text-left',
+                  )}
+                >
                   <View className="h-9 w-9 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={16} color="#B91C1C" />
                   </View>
-                  <View className="flex-1 gap-1">
+                  <View className={cn('gap-1', layout.isCozy ? 'w-full' : 'flex-1')}>
                     <Text className="text-sm font-semibold text-destructive">Some data failed to load</Text>
                     <Text className="text-xs text-destructive/80" numberOfLines={2}>
                       {dataError}
@@ -467,7 +485,7 @@ export default function Home() {
                     size="sm"
                     variant="secondary"
                     onPress={loadDashboardData}
-                    className="h-9 rounded-full px-3"
+                    className={cn('h-9 rounded-full px-3', layout.isCozy && 'w-full justify-center')}
                     disabled={dataLoading}
                   >
                     <Text className="text-[12px] text-foreground">Retry</Text>
@@ -505,11 +523,21 @@ export default function Home() {
       <View className="gap-6">
           {role === 'officer' ? (
             <>
-              <View className="flex-row gap-5" style={{ alignItems: 'stretch' }}>
-                <Animated.View style={[animStyle(sectionAnims[0]), { flex: 1 }]}>
-                  <Card className="flex-1">
+              <View
+                className={cn(layout.isCozy ? 'gap-6' : 'flex-row gap-5')}
+                style={!layout.isCozy ? { alignItems: 'stretch' } : undefined}
+              >
+                <Animated.View
+                  style={[animStyle(sectionAnims[0]), !layout.isCozy && { flex: 1 }]}
+                >
+                  <Card className={!layout.isCozy ? 'flex-1' : undefined}>
                     <CardHeader title="Overview" tone="ring" />
-                    <View className="mt-3 flex-row gap-3">
+                    <View
+                      className={cn(
+                        'mt-3 gap-3',
+                        layout.isCozy ? 'flex-col' : 'flex-row',
+                      )}
+                    >
                       <Kpi
                         label="Pending reports"
                         value={overview.pendingReports}
@@ -526,8 +554,10 @@ export default function Home() {
                   </Card>
                 </Animated.View>
 
-                <Animated.View style={[animStyle(sectionAnims[1]), { flex: 1 }]}>
-                  <Card className="flex-1">
+                <Animated.View
+                  style={[animStyle(sectionAnims[1]), !layout.isCozy && { flex: 1 }]}
+                >
+                  <Card className={!layout.isCozy ? 'flex-1' : undefined}>
                     <CardHeader title="Manage" tone="primary" />
                     {/* Order controls left/right columns:
                         0 (left), 1 (right), 2 (left), 3 (right) */}
@@ -847,8 +877,24 @@ type Tile = {
   count?: number;
 };
 
-/** Two-column grid of action tiles. */
+/** Responsive 2-column grid of action tiles. */
 const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
+  const layout = useResponsiveLayout();
+  const effectiveWidth = Math.min(layout.maxContentWidth, layout.width);
+  const singleColumn = effectiveWidth < 320;
+
+  if (singleColumn) {
+    return (
+      <View className="mt-4 gap-3">
+        {tiles.map((tile, idx) => (
+          <View key={`${tile.label}-${idx}`} className="w-full">
+            <IconTileButton {...tile} />
+          </View>
+        ))}
+      </View>
+    );
+  }
+
   const rows: Tile[][] = [];
   for (let i = 0; i < tiles.length; i += 2) {
     rows.push(tiles.slice(i, i + 2));
@@ -857,13 +903,16 @@ const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
   return (
     <View className="mt-4 flex-col gap-3">
       {rows.map((row, rowIdx) => (
-        <View key={rowIdx} className="flex-row gap-3">
+        <View
+          key={rowIdx}
+          className={cn('flex-row gap-3', layout.isCozy ? 'flex-col' : undefined)}
+        >
           {row.map((tile, idx) => (
-            <View key={`${tile.label}-${idx}`} className="flex-1">
+            <View key={`${tile.label}-${idx}`} className={layout.isCozy ? 'w-full' : 'flex-1'}>
               <IconTileButton {...tile} />
             </View>
           ))}
-          {row.length === 1 ? <View className="flex-1" /> : null}
+          {row.length === 1 && !layout.isCozy ? <View className="flex-1" /> : null}
         </View>
       ))}
     </View>
@@ -878,12 +927,13 @@ const IconTileButton: FC<Tile> = ({
   variant = 'default',
   count,
 }) => {
+  const layout = useResponsiveLayout();
   const isSecondary = variant === 'secondary';
   const iconColor = isSecondary ? '#0F172A' : '#1E3A8A';
   const circleTint = isSecondary ? '#E0F2F1' : '#E0EAFF';
   const hasBadge = typeof count === 'number' && count > 0;
-  const cardPadding = 'px-6 py-6';
-  const minHeight = 148;
+  const cardPadding = layout.isCozy ? 'px-5 py-5' : 'px-6 py-6';
+  const minHeight = layout.isCozy ? 136 : 148;
 
   return (
     <Pressable
@@ -954,6 +1004,7 @@ const List: FC<{
   emptyTone = 'ring',
   onItemPress,
 }) => {
+  const layout = useResponsiveLayout();
   if (!items || items.length === 0) {
     return (
       <AppCard className={cn('mt-3', className)}>
@@ -968,7 +1019,7 @@ const List: FC<{
           <View
             className={cn(
               'flex-row flex-wrap items-center gap-3',
-              'justify-between',
+              layout.isCozy ? 'justify-start' : 'justify-between',
             )}
           >
             <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-3">
