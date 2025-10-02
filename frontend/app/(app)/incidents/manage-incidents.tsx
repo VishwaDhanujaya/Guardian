@@ -183,6 +183,34 @@ export default function ManageIncidents() {
     });
   }, [activeTab, tabBuckets, priorityFilter]);
 
+  const tabAllowsApproveReject = isOfficer && activeTab === "pending";
+  const tabAllowsStatusUpdate = isOfficer && activeTab === "ongoing";
+  const tabAllowsNotes = isOfficer && (activeTab === "ongoing" || activeTab === "solved");
+
+  useEffect(() => {
+    if (tabAllowsStatusUpdate) return;
+    setRows((prev) => {
+      if (!prev.some((r) => r.showUpdate || typeof r.statusDraft !== "undefined")) {
+        return prev;
+      }
+      return prev.map((r) =>
+        r.showUpdate || typeof r.statusDraft !== "undefined"
+          ? { ...r, showUpdate: false, statusDraft: undefined }
+          : r,
+      );
+    });
+  }, [tabAllowsStatusUpdate]);
+
+  useEffect(() => {
+    if (tabAllowsNotes) return;
+    setRows((prev) => {
+      if (!prev.some((r) => r.showNotes)) {
+        return prev;
+      }
+      return prev.map((r) => (r.showNotes ? { ...r, showNotes: false } : r));
+    });
+  }, [tabAllowsNotes]);
+
   const prioPill = (p: Priority) =>
     p === "Urgent"
       ? { wrap: "bg-destructive/10 border-destructive/30", text: "text-destructive", Icon: AlertTriangle }
@@ -223,7 +251,7 @@ export default function ManageIncidents() {
   );
 
   const toggleUpdatePanel = (id: string) => {
-    if (!isOfficer) return;
+    if (!tabAllowsStatusUpdate) return;
     setRows((prev) =>
       prev.map((r) =>
         r.id === id
@@ -239,7 +267,7 @@ export default function ManageIncidents() {
   };
 
   const toggleNotesPanel = (id: string) => {
-    if (!isOfficer) return;
+    if (!tabAllowsNotes) return;
     setRows((prev) =>
       prev.map((r) =>
         r.id === id
@@ -270,8 +298,14 @@ export default function ManageIncidents() {
     }
   };
 
-  const approveRow = (id: string) => applyRowStatus(id, "Approved", "Report approved");
-  const rejectRow = (id: string) => applyRowStatus(id, "Resolved", "Report rejected");
+  const approveRow = (id: string) => {
+    if (!tabAllowsApproveReject) return;
+    applyRowStatus(id, "Approved", "Report approved");
+  };
+  const rejectRow = (id: string) => {
+    if (!tabAllowsApproveReject) return;
+    applyRowStatus(id, "Resolved", "Report rejected");
+  };
 
   const setDraftNote = (id: string, text: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteDraft: text } : r)));
@@ -280,7 +314,7 @@ export default function ManageIncidents() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteHeight: height } : r)));
 
   const addNote = (id: string) => {
-    if (!isOfficer) return;
+    if (!tabAllowsNotes) return;
     const row = rows.find((r) => r.id === id);
     const text = (row?.newNoteDraft ?? "").trim();
     if (!row || !text || isNoteBusy(id)) {
@@ -578,36 +612,40 @@ export default function ManageIncidents() {
                           </>
                         ) : null}
 
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="ml-auto h-9 rounded-lg px-3"
-                          onPress={() => toggleUpdatePanel(r.id)}
-                        >
-                          <View className="flex-row items-center gap-1">
-                            <ClipboardList size={14} color="#0F172A" />
-                            <Text className="text-[12px] text-foreground">
-                              {r.showUpdate ? "Close" : "Update status"}
-                            </Text>
-                          </View>
-                        </Button>
+                        {tabAllowsStatusUpdate ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="ml-auto h-9 rounded-lg px-3"
+                            onPress={() => toggleUpdatePanel(r.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <ClipboardList size={14} color="#0F172A" />
+                              <Text className="text-[12px] text-foreground">
+                                {r.showUpdate ? "Close" : "Update status"}
+                              </Text>
+                            </View>
+                          </Button>
+                        ) : null}
 
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-9 rounded-lg px-3"
-                          onPress={() => toggleNotesPanel(r.id)}
-                        >
-                          <View className="flex-row items-center gap-1">
-                            <MessageSquare size={14} color="#0F172A" />
-                            <Text className="text-[12px] text-foreground">
-                              {r.showNotes ? "Hide notes" : "Notes"}
-                            </Text>
-                          </View>
-                        </Button>
+                        {tabAllowsNotes ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className={`h-9 rounded-lg px-3 ${tabAllowsStatusUpdate ? "" : "ml-auto"}`}
+                            onPress={() => toggleNotesPanel(r.id)}
+                          >
+                            <View className="flex-row items-center gap-1">
+                              <MessageSquare size={14} color="#0F172A" />
+                              <Text className="text-[12px] text-foreground">
+                                {r.showNotes ? "Hide notes" : "Notes"}
+                              </Text>
+                            </View>
+                          </Button>
+                        ) : null}
                       </View>
 
-                      {r.showUpdate ? (
+                      {tabAllowsStatusUpdate && r.showUpdate ? (
                         <View className="rounded-xl border border-border bg-muted px-4 py-3">
                           <Text className="text-[12px] text-foreground">Update status</Text>
                           <View className="mt-2 flex-row flex-wrap gap-2">
@@ -662,7 +700,7 @@ export default function ManageIncidents() {
                         </View>
                       ) : null}
 
-                      {r.showNotes ? (
+                      {tabAllowsNotes && r.showNotes ? (
                         <View className="overflow-hidden rounded-xl border border-border bg-muted">
                           <View className="border-b border-border px-4 py-3">
                             <View className="flex-row items-center gap-2">

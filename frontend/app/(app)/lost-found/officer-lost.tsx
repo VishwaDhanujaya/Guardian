@@ -225,6 +225,34 @@ export default function OfficerLost() {
     });
   }, [activeTab, tabBuckets]);
 
+  const tabAllowsApproveReject = activeTab === "pending";
+  const tabAllowsStatusUpdate = activeTab === "searching";
+  const tabAllowsNotes = activeTab === "searching" || activeTab === "returned";
+
+  useEffect(() => {
+    if (tabAllowsStatusUpdate) return;
+    setRows((prev) => {
+      if (!prev.some((r) => r.showUpdate)) {
+        return prev;
+      }
+      return prev.map((r) => (r.showUpdate ? { ...r, showUpdate: false, statusDraft: undefined } : r));
+    });
+  }, [tabAllowsStatusUpdate]);
+
+  useEffect(() => {
+    if (tabAllowsNotes) return;
+    setRows((prev) => {
+      if (!prev.some((r) => r.showNotes)) {
+        return prev;
+      }
+      return prev.map((r) =>
+        r.showNotes
+          ? { ...r, showNotes: false, notesLoading: false, noteSubmitting: false }
+          : r,
+      );
+    });
+  }, [tabAllowsNotes]);
+
   const prioPill = (p: Priority) =>
     p === "Urgent"
       ? { wrap: "bg-destructive/10 border-destructive/30", text: "text-destructive", Icon: AlertTriangle }
@@ -241,20 +269,24 @@ export default function OfficerLost() {
       ? "text-primary"
       : "text-foreground";
 
-  const toggleUpdatePanel = useCallback((id: string) => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== id || r.statusUpdating) return r;
-        const nextShow = !r.showUpdate;
-        return {
-          ...r,
-          showUpdate: nextShow,
-          showNotes: nextShow ? false : r.showNotes,
-          statusDraft: nextShow ? r.status : undefined,
-        };
-      }),
-    );
-  }, []);
+  const toggleUpdatePanel = useCallback(
+    (id: string) => {
+      if (!tabAllowsStatusUpdate) return;
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id !== id || r.statusUpdating) return r;
+          const nextShow = !r.showUpdate;
+          return {
+            ...r,
+            showUpdate: nextShow,
+            showNotes: nextShow ? false : r.showNotes,
+            statusDraft: nextShow ? r.status : undefined,
+          };
+        }),
+      );
+    },
+    [tabAllowsStatusUpdate],
+  );
 
   const loadNotes = useCallback(
     async (id: string) => {
@@ -298,6 +330,7 @@ export default function OfficerLost() {
 
   const toggleNotesPanel = useCallback(
     (id: string) => {
+      if (!tabAllowsNotes) return;
       setRows((prev) => {
         const target = prev.find((r) => r.id === id);
         if (!target) return prev;
@@ -319,7 +352,7 @@ export default function OfficerLost() {
         );
       });
     },
-    [loadNotes],
+    [loadNotes, tabAllowsNotes],
   );
 
   const applyStatusChange = useCallback(
@@ -360,9 +393,15 @@ export default function OfficerLost() {
     [],
   );
 
-  const approveRow = (id: string) => applyStatusChange(id, "Approved", "Lost report approved");
+  const approveRow = (id: string) => {
+    if (!tabAllowsApproveReject) return;
+    applyStatusChange(id, "Approved", "Lost report approved");
+  };
 
-  const rejectRow = (id: string) => applyStatusChange(id, "Returned", "Lost report closed");
+  const rejectRow = (id: string) => {
+    if (!tabAllowsApproveReject) return;
+    applyStatusChange(id, "Returned", "Lost report closed");
+  };
 
   const setDraftNote = (id: string, text: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteDraft: text } : r)));
@@ -371,6 +410,7 @@ export default function OfficerLost() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, newNoteHeight: height } : r)));
 
   const addNote = (id: string) => {
+    if (!tabAllowsNotes) return;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
     const text = (row.newNoteDraft ?? "").trim();
@@ -574,7 +614,7 @@ export default function OfficerLost() {
 
                   <View className="mt-3 gap-3">
                     <View className="flex-row flex-wrap items-center gap-2">
-                      {activeTab === "pending" ? (
+                      {tabAllowsApproveReject ? (
                         <>
                           <Button
                             size="sm"
@@ -630,38 +670,42 @@ export default function OfficerLost() {
                         </>
                       ) : null}
 
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="ml-auto h-9 rounded-lg px-3"
-                        onPress={() => toggleUpdatePanel(r.id)}
-                        disabled={r.statusUpdating}
-                      >
-                        <View className="flex-row items-center gap-1">
-                          <ClipboardList size={14} color="#0F172A" />
-                          <Text className="text-[12px] text-foreground">
-                            {r.showUpdate ? "Close" : "Update status"}
-                          </Text>
-                        </View>
-                      </Button>
+                      {tabAllowsStatusUpdate ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="ml-auto h-9 rounded-lg px-3"
+                          onPress={() => toggleUpdatePanel(r.id)}
+                          disabled={r.statusUpdating}
+                        >
+                          <View className="flex-row items-center gap-1">
+                            <ClipboardList size={14} color="#0F172A" />
+                            <Text className="text-[12px] text-foreground">
+                              {r.showUpdate ? "Close" : "Update status"}
+                            </Text>
+                          </View>
+                        </Button>
+                      ) : null}
 
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-9 rounded-lg px-3"
-                        onPress={() => toggleNotesPanel(r.id)}
-                        disabled={r.notesLoading || r.noteSubmitting}
-                      >
-                        <View className="flex-row items-center gap-1">
-                          <MessageSquare size={14} color="#0F172A" />
-                          <Text className="text-[12px] text-foreground">
-                            {r.showNotes ? "Hide notes" : "Notes"}
-                          </Text>
-                        </View>
-                      </Button>
+                      {tabAllowsNotes ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className={`h-9 rounded-lg px-3 ${tabAllowsStatusUpdate ? "" : "ml-auto"}`}
+                          onPress={() => toggleNotesPanel(r.id)}
+                          disabled={r.notesLoading || r.noteSubmitting}
+                        >
+                          <View className="flex-row items-center gap-1">
+                            <MessageSquare size={14} color="#0F172A" />
+                            <Text className="text-[12px] text-foreground">
+                              {r.showNotes ? "Hide notes" : "Notes"}
+                            </Text>
+                          </View>
+                        </Button>
+                      ) : null}
                     </View>
 
-                    {r.showUpdate ? (
+                    {tabAllowsStatusUpdate && r.showUpdate ? (
                       <View className="rounded-xl border border-border bg-muted px-4 py-3">
                         <Text className="text-[12px] text-foreground">Update status</Text>
                         <View className="mt-2 flex-row flex-wrap gap-2">
@@ -726,7 +770,7 @@ export default function OfficerLost() {
                       </View>
                     ) : null}
 
-                    {r.showNotes ? (
+                    {tabAllowsNotes && r.showNotes ? (
                       <View className="overflow-hidden rounded-xl border border-border bg-muted">
                         <View className="border-b border-border px-4 py-3">
                           <View className="flex-row items-center gap-2">
