@@ -8,8 +8,9 @@ import {
   useState,
   createElement,
 } from "react";
-import { ActivityIndicator, Animated, Keyboard, Pressable, Switch, View } from "react-native";
+import { ActivityIndicator, Animated, Keyboard, Linking, Pressable, ScrollView, Switch, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Image } from "expo-image";
 
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import {
   ChevronLeft,
   ClipboardList,
   FileText,
+  Image as ImageIcon,
   Info,
   MapPin,
   MessageSquare,
@@ -63,6 +65,7 @@ function getMockReport(id: string): Report {
     notes: [{ id: "n1", text: "Report received. Reviewing details.", at: "3:12 PM", by: "System" }],
     witnesses: [],
     rawStatus: "PENDING",
+    images: [],
   };
 }
 
@@ -117,6 +120,11 @@ export default function ViewIncident() {
   const [newNoteDraft, setNewNoteDraft] = useState("");
   const [newNoteHeight, setNewNoteHeight] = useState<number | undefined>(undefined);
   const [notifyCitizen, setNotifyCitizen] = useState(true);
+
+  const openAttachment = useCallback((url: string) => {
+    if (!url) return;
+    Linking.openURL(url).catch(() => toast.error("Unable to open attachment"));
+  }, []);
 
   // SECTION logic:
   // - Officers: honor the tab they came from (Pending / Ongoing / Solved), regardless of current status.
@@ -295,6 +303,9 @@ export default function ViewIncident() {
   };
 
   const witnesses = report.witnesses ?? [];
+  const attachments = Array.isArray(report.images)
+    ? report.images.filter((url) => typeof url === "string" && url.trim().length > 0)
+    : [];
 
   return (
     <KeyboardAwareScrollView
@@ -365,6 +376,43 @@ export default function ViewIncident() {
                   <Text className="text-[12px] text-foreground">Description</Text>
                 </View>
                 <Text className="text-sm text-foreground">{report.description}</Text>
+              </View>
+            ) : null}
+
+            {/* Attachments */}
+            {attachments.length > 0 ? (
+              <View className="bg-background rounded-xl border border-border p-3">
+                <View className="mb-2 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <ImageIcon size={14} color="#0F172A" />
+                    <Text className="text-[12px] text-foreground">Evidence</Text>
+                  </View>
+                  <Text className="text-[11px] text-muted-foreground">
+                    {attachments.length === 1 ? "1 photo" : `${attachments.length} photos`}
+                  </Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 4 }}
+                >
+                  {attachments.map((url, index) => (
+                    <Pressable
+                      key={url}
+                      onPress={() => openAttachment(url)}
+                      className="mr-3 overflow-hidden rounded-xl border border-border"
+                      style={index === attachments.length - 1 ? { marginRight: 0 } : undefined}
+                      android_ripple={{ color: "rgba(0,0,0,0.08)" }}
+                    >
+                      <Image
+                        source={{ uri: url }}
+                        style={{ width: 132, height: 132 }}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </View>
             ) : null}
           </Animated.View>
