@@ -446,21 +446,16 @@ export default function Home() {
 
               {showBanner ? (
                 <AppCard
-                  className={cn(
-                    'flex-row flex-wrap items-center gap-3 border border-destructive/40',
-                    layout.isCozy && 'flex-col items-start text-left',
-                  )}
+                  className="flex-row items-center gap-3 border border-destructive/40"
                 >
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
                     <AlertTriangle size={18} color="#B91C1C" />
                   </View>
                   <Text
-                    className={cn(
-                      'text-[13px] text-destructive',
-                      layout.isCozy ? 'text-left' : 'flex-1',
-                    )}
+                    className="flex-1 text-[13px] text-destructive"
+                    numberOfLines={1}
                   >
-                    If this is an emergency, please call 119 immediately.
+                    Emergency? Call 911 immediately.
                   </Text>
                 </AppCard>
               ) : null}
@@ -532,12 +527,7 @@ export default function Home() {
                 >
                   <Card className={!layout.isCozy ? 'flex-1' : undefined}>
                     <CardHeader title="Overview" tone="ring" />
-                    <View
-                      className={cn(
-                        'mt-3 gap-3',
-                        layout.isCozy ? 'flex-col' : 'flex-row',
-                      )}
-                    >
+                    <View className="mt-3 flex-row items-stretch gap-3">
                       <Kpi
                         label="Pending reports"
                         value={overview.pendingReports}
@@ -905,14 +895,14 @@ const TileGrid: FC<{ tiles: Tile[] }> = ({ tiles }) => {
       {rows.map((row, rowIdx) => (
         <View
           key={rowIdx}
-          className={cn('flex-row gap-3', layout.isCozy ? 'flex-col' : undefined)}
+          className="flex-row gap-3"
         >
           {row.map((tile, idx) => (
-            <View key={`${tile.label}-${idx}`} className={layout.isCozy ? 'w-full' : 'flex-1'}>
+            <View key={`${tile.label}-${idx}`} className="flex-1">
               <IconTileButton {...tile} />
             </View>
           ))}
-          {row.length === 1 && !layout.isCozy ? <View className="flex-1" /> : null}
+          {row.length === 1 ? <View className="flex-1" /> : null}
         </View>
       ))}
     </View>
