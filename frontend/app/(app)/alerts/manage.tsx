@@ -100,7 +100,7 @@ export default function ManageAlerts() {
         extraScrollHeight: 120,
         onScrollBeginDrag: Keyboard.dismiss,
       }}
-      contentClassName={cn(layout.isCozy ? "px-4" : "px-5", "pb-8")}
+      contentClassName="px-5 pb-8"
     >
       <ScreenHeader
         title={isOfficer ? "Manage alerts" : "Safety alerts"}
@@ -116,7 +116,7 @@ export default function ManageAlerts() {
 
       {isOfficer ? (
         <Animated.View style={animStyle}>
-          <AppCard className={cn("gap-4", layout.isCozy ? "p-4" : "p-5")}>
+          <AppCard className="gap-4 p-5">
             <SectionHeader
               title="Create a new alert"
               description="Draft a message when there’s an urgent update citizens should see."
@@ -133,7 +133,7 @@ export default function ManageAlerts() {
       ) : null}
 
       <Animated.View style={animStyle}>
-        <AppCard className={cn("gap-4", layout.isCozy ? "p-4" : "p-5")}>
+        <AppCard className="gap-4 p-5">
           <SectionHeader
             title={isOfficer ? "Active alerts" : "Current alerts"}
             description={
@@ -145,22 +145,12 @@ export default function ManageAlerts() {
           />
 
           {loading ? (
-            <View
-              className={cn(
-                "items-center justify-center rounded-2xl border border-border bg-background/70",
-                layout.isCozy ? "p-4" : "p-6",
-              )}
-            >
+            <View className="items-center justify-center rounded-2xl border border-border bg-background/70 p-6">
               <ActivityIndicator color="#0F172A" />
               <Text className="mt-2 text-xs text-muted-foreground">Loading alerts…</Text>
             </View>
           ) : loadError ? (
-            <View
-              className={cn(
-                "items-center rounded-2xl border border-border bg-background/70",
-                layout.isCozy ? "p-4" : "p-6",
-              )}
-            >
+            <View className="items-center rounded-2xl border border-border bg-background/70 p-6">
               <Text className="font-semibold text-foreground">Unable to load alerts</Text>
               <Text className="mt-1 text-center text-xs text-muted-foreground">
                 Check your connection and try again.
@@ -170,12 +160,7 @@ export default function ManageAlerts() {
               </Button>
             </View>
           ) : visibleRows.length === 0 ? (
-            <View
-              className={cn(
-                "items-center rounded-2xl border border-dashed border-border bg-background/60",
-                layout.isCozy ? "p-4" : "p-6",
-              )}
-            >
+            <View className="items-center rounded-2xl border border-dashed border-border bg-background/60 p-6">
               <View className="h-14 w-14 items-center justify-center rounded-full bg-ring/10">
                 <Megaphone size={28} color="#0F172A" />
               </View>
