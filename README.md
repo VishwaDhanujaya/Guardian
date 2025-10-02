@@ -38,6 +38,9 @@ npm run dev
 
 # Start the frontend server
 npx cross-env EXPO_PUBLIC_API_URL=http://192.168.56.1:2699 expo start -c
+
+# Generate mock data
+npm run script:generateExampleData
 ```
 
 You can then visit `localhost:2699/api-docs` and view all available endpoints
