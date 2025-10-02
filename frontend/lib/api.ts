@@ -372,7 +372,7 @@ export async function createReport(
     title: data?.description ? data.description.slice(0, 80) : `Report #${id}`,
     citizen: data?.user_id ? `Citizen #${data.user_id}` : "Unknown",
     status,
-    reportedAgo: formatRelative(data?.createdAt ?? null),
+    reportedAgo: formatRelative(data?.createdAt ?? data?.created_at ?? null),
     suggestedPriority: mapPriority(data?.priority),
     rawStatus: (data?.status as BackendReportStatus) ?? "PENDING",
   };
@@ -409,7 +409,7 @@ export async function fetchReports(): Promise<ReportSummary[]> {
       title: report.description ? report.description.slice(0, 80) : `Report #${id}`,
       citizen: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
       status,
-      reportedAgo: formatRelative(report.createdAt ?? null),
+      reportedAgo: formatRelative(report.createdAt ?? report.created_at ?? null),
       suggestedPriority: mapPriority(report.priority),
       rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
     };
@@ -447,7 +447,7 @@ export async function getIncident(id: string): Promise<Report> {
     category: "Safety",
     location: formatLocation(report.latitude, report.longitude),
     reportedBy: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
-    reportedAt: formatRelative(report.createdAt ?? null),
+    reportedAt: formatRelative(report.createdAt ?? report.created_at ?? null),
     status: mapReportStatus(report.status),
     priority: mapPriority(report.priority),
     description: report.description ?? "",
