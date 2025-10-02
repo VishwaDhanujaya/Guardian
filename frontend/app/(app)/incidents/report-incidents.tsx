@@ -1,6 +1,7 @@
 // app/(app)/incidents/report-incidents.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
 import {
   useCallback,
   useMemo,
@@ -59,6 +60,16 @@ type Witness = {
   expanded: boolean;
 };
 
+type ReportAttachment = {
+  id: string;
+  uri: string;
+  name: string;
+  size?: number;
+  mimeType?: string;
+};
+
+const MAX_ATTACHMENTS = 12;
+
 /**
  * Citizen incident report screen.
  * - Collects category, location, description, and optional witnesses.
@@ -100,6 +111,65 @@ export default function ReportIncidents() {
   const onChangeDesc = (v: string) => setDesc(v.slice(0, DESC_MAX));
 
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<ReportAttachment[]>([]);
+
+  const pickAttachments = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*"],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets) {
+        return;
+      }
+      let trimmed = false;
+      setPhotos((prev) => {
+        const existing = new Set(prev.map((p) => p.uri));
+        const next = [...prev];
+        result.assets.forEach((asset, index) => {
+          if (!asset?.uri || existing.has(asset.uri)) {
+            return;
+          }
+          if (next.length >= MAX_ATTACHMENTS) {
+            trimmed = true;
+            return;
+          }
+          const name = asset.name?.trim() || `Photo ${next.length + 1}`;
+          next.push({
+            id: `${asset.uri}-${Date.now()}-${index}`,
+            uri: asset.uri,
+            name,
+            size: asset.size ?? undefined,
+            mimeType: asset.mimeType ?? undefined,
+          });
+        });
+        return next;
+      });
+      if (trimmed) {
+        toast.error(`You can attach up to ${MAX_ATTACHMENTS} photos per report`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to pick attachments");
+    }
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPhotos((prev) => prev.filter((photo) => photo.id !== id));
+  }, []);
+
+  const formatFileSize = (size?: number) => {
+    if (!size || size <= 0) return "";
+    const units = ["B", "KB", "MB", "GB"] as const;
+    let value = size;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  };
 
   // Witnesses
   const [witnesses, setWitnesses] = useState<Witness[]>([]);
@@ -202,7 +272,14 @@ export default function ReportIncidents() {
 
       const descriptionPayload = detailSegments.filter(Boolean).join("\n\n");
 
-      const reportSummary = await createReport({ description: descriptionPayload });
+      const reportSummary = await createReport({
+        description: descriptionPayload,
+        photos: photos.map((photo) => ({
+          uri: photo.uri,
+          name: photo.name,
+          mimeType: photo.mimeType,
+        })),
+      });
 
       if (!reportSummary?.id) {
         throw new Error("Missing report identifier");
@@ -227,12 +304,17 @@ export default function ReportIncidents() {
         }
       }
 
-      const successMessage =
-        validatedWitnesses.length > 0
-          ? "Incident and witnesses submitted"
-          : "Incident submitted";
+      const successMessage = (() => {
+        const witnessPart = validatedWitnesses.length > 0;
+        const photoPart = photos.length > 0;
+        if (witnessPart && photoPart) return "Incident, witnesses, and photos submitted";
+        if (witnessPart) return "Incident and witnesses submitted";
+        if (photoPart) return "Incident and photos submitted";
+        return "Incident submitted";
+      })();
 
       toast.success(successMessage);
+      setPhotos([]);
       router.replace({
         pathname: "/incidents/my-reports",
         params: { role: resolvedRole },
@@ -373,24 +455,61 @@ export default function ReportIncidents() {
               title="Attachments"
               description="Include supporting media to help responders understand the situation."
               trailing={
-                <Button size="sm" variant="secondary" onPress={() => {}} className="h-9 rounded-lg px-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={pickAttachments}
+                  className="h-9 rounded-lg px-3"
+                  disabled={submitting}
+                >
                   <View className="flex-row items-center gap-1">
                     <FilePlus2 size={14} color="#0F172A" />
-                    <Text className="text-[12px] text-foreground">Choose</Text>
+                    <Text className="text-[12px] text-foreground">{photos.length > 0 ? "Add more" : "Choose"}</Text>
                   </View>
                 </Button>
               }
             />
-
-            <View className="flex-row flex-wrap items-start gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-4">
-              <ImageIcon size={20} color="#0F172A" />
-              <View className="flex-1 gap-1">
-                <Text className="font-medium text-foreground">Attach photo (optional)</Text>
-                <Text className="text-[11px] text-muted-foreground">
-                  Include a clear photo if you have one available.
-                </Text>
+            {photos.length > 0 ? (
+              <View className="gap-2">
+                {photos.map((photo) => (
+                  <View
+                    key={photo.id}
+                    className="flex-row items-center gap-3 rounded-2xl border border-border bg-muted/40 p-3"
+                  >
+                    <ImageIcon size={18} color="#0F172A" />
+                    <View className="flex-1">
+                      <Text
+                        className="text-[13px] font-medium text-foreground"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {photo.name}
+                      </Text>
+                      <Text className="text-[11px] text-muted-foreground">
+                        {[photo.mimeType ?? "Image", formatFileSize(photo.size)].filter(Boolean).join(" · ")}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => removeAttachment(photo.id)}
+                      className="h-8 w-8 items-center justify-center rounded-full bg-destructive/10"
+                      android_ripple={{ color: "rgba(220,38,38,0.12)", borderless: true }}
+                    >
+                      <Trash2 size={16} color="#DC2626" />
+                    </Pressable>
+                  </View>
+                ))}
               </View>
-            </View>
+            ) : (
+              <View className="flex-row flex-wrap items-start gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-4">
+                <ImageIcon size={20} color="#0F172A" />
+                <View className="flex-1 gap-1">
+                  <Text className="font-medium text-foreground">Attach photo (optional)</Text>
+                  <Text className="text-[11px] text-muted-foreground">
+                    Include a clear photo if you have one available.
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
 
           <View className="h-px w-full bg-border/80" />

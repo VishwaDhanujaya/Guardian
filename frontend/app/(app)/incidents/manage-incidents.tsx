@@ -20,6 +20,7 @@ import useMountAnimation from "@/hooks/useMountAnimation";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import {
   addReportNote,
+  fetchReportNotes,
   fetchReports,
   Note,
   ReportSummary,
@@ -56,6 +57,8 @@ type Row = {
   newNoteDraft?: string;
   newNoteHeight?: number;
   statusDraft?: Status;
+  notesLoaded?: boolean;
+  notesLoading?: boolean;
 };
 
 type TabKey = "pending" | "ongoing" | "solved";
@@ -115,6 +118,8 @@ export default function ManageIncidents() {
       suggestedPriority: summary.suggestedPriority,
       reportedAgo: summary.reportedAgo,
       notes: [],
+      notesLoaded: false,
+      notesLoading: false,
     }),
     [],
   );
@@ -266,15 +271,67 @@ export default function ManageIncidents() {
     );
   };
 
+  const loadNotes = useCallback(
+    async (id: string) => {
+      try {
+        const loaded = await fetchReportNotes(id);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  notes: loaded,
+                  notesLoaded: true,
+                  notesLoading: false,
+                  showNotes: true,
+                  showUpdate: false,
+                }
+              : r,
+          ),
+        );
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load notes");
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, notesLoading: false, showNotes: false }
+              : r,
+          ),
+        );
+      }
+    },
+    [],
+  );
+
   const toggleNotesPanel = (id: string) => {
     if (!tabAllowsNotes) return;
-    setRows((prev) =>
-      prev.map((r) =>
+    setRows((prev) => {
+      const target = prev.find((r) => r.id === id);
+      if (!target) return prev;
+      if (target.showNotes) {
+        return prev.map((r) => (r.id === id ? { ...r, showNotes: false } : r));
+      }
+      if (target.notesLoaded) {
+        return prev.map((r) =>
+          r.id === id
+            ? { ...r, showNotes: true, showUpdate: false, statusDraft: undefined }
+            : { ...r, showNotes: false },
+        );
+      }
+      loadNotes(id);
+      return prev.map((r) =>
         r.id === id
-          ? { ...r, showNotes: !r.showNotes, showUpdate: false, statusDraft: undefined }
-          : r,
-      ),
-    );
+          ? {
+              ...r,
+              notesLoading: true,
+              showNotes: true,
+              showUpdate: false,
+              statusDraft: undefined,
+            }
+          : { ...r, showNotes: false },
+      );
+    });
   };
 
   const setRowAction = (id: string, active: boolean) => setRowActions((prev) => ({ ...prev, [id]: active }));
@@ -323,19 +380,21 @@ export default function ManageIncidents() {
     setNoteAction(id, true);
     addReportNote(id, "Officer", text)
       .then((created) => {
-        setRows((prev) =>
-          prev.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  notes: [...(r.notes ?? []), created],
-                  newNoteDraft: "",
-                  newNoteHeight: undefined,
-                  showNotes: true,
-                }
-              : r,
-          ),
-        );
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              notes: [...(r.notes ?? []), created],
+              newNoteDraft: "",
+              newNoteHeight: undefined,
+              showNotes: true,
+              notesLoaded: true,
+              notesLoading: false,
+            }
+          : r,
+      ),
+    );
         toast.success("Note added");
       })
       .catch(() => toast.error("Failed to add note"))
@@ -710,7 +769,12 @@ export default function ManageIncidents() {
                           </View>
 
                           <View className="px-4 pb-2 pt-3">
-                            {(r.notes ?? []).length > 0 ? (
+                            {r.notesLoading ? (
+                              <View className="items-center justify-center gap-2 py-6">
+                                <ActivityIndicator color="#0F172A" />
+                                <Text className="text-[11px] text-muted-foreground">Loading notes…</Text>
+                              </View>
+                            ) : (r.notes ?? []).length > 0 ? (
                               (r.notes ?? []).slice().reverse().map((n) => (
                                 <View key={n.id} className="mb-2 rounded-lg border border-border bg-background px-3 py-2">
                                   <Text className="text-[12px] text-foreground">{n.text}</Text>

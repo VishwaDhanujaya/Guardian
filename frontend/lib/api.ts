@@ -29,6 +29,21 @@ async function unwrap<T>(
   return payload as T;
 }
 
+function getApiBaseUrl(): string {
+  const base = apiService.defaults.baseURL ?? "";
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function toSignedFileUrl(token: unknown): string | null {
+  if (typeof token !== "string") return null;
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  const baseUrl = getApiBaseUrl();
+  const path = `/api/v1/files?token=${encodeURIComponent(trimmed)}`;
+  if (!baseUrl) return path;
+  return `${baseUrl}${path}`;
+}
+
 function toStringId(value: unknown): string {
   if (typeof value === "string") {
     return value;
@@ -281,6 +296,13 @@ export type CreateReportPayload = {
   description: string;
   latitude?: number;
   longitude?: number;
+  photos?: ReportPhoto[];
+};
+
+export type ReportPhoto = {
+  uri: string;
+  name?: string;
+  mimeType?: string;
 };
 
 export type ReportWitnessPayload = {
@@ -318,6 +340,22 @@ export async function createReport(
   }
   if (typeof payload.longitude === "number") {
     form.append("longitude", String(payload.longitude));
+  }
+
+  if (Array.isArray(payload.photos)) {
+    payload.photos.forEach((photo, index) => {
+      if (!photo?.uri) return;
+      const name = photo.name?.trim() || `photo-${index + 1}.jpg`;
+      const type = photo.mimeType?.trim() || "image/jpeg";
+      form.append(
+        "photos",
+        {
+          uri: photo.uri,
+          name,
+          type,
+        } as any,
+      );
+    });
   }
 
   const data = await unwrap<any>(
@@ -378,6 +416,15 @@ export async function fetchReports(): Promise<ReportSummary[]> {
   });
 }
 
+export async function fetchReportNotes(id: string): Promise<Note[]> {
+  const data = await unwrap<any[]>(
+    apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
+      params: { resourceType: "report" },
+    }),
+  );
+  return (Array.isArray(data) ? data : []).map(mapNote);
+}
+
 export async function getIncident(id: string): Promise<Report> {
   const [report, notes] = await Promise.all([
     unwrap<any>(apiService.get<ApiEnvelope<any>>(`/api/v1/reports/${id}`)),
@@ -389,6 +436,11 @@ export async function getIncident(id: string): Promise<Report> {
   ]);
 
   const title = report.description ? report.description.slice(0, 80) : `Report #${id}`;
+  const images = Array.isArray(report.images)
+    ? (report.images as unknown[])
+        .map((token) => toSignedFileUrl(token))
+        .filter((url): url is string => typeof url === "string" && url.length > 0)
+    : [];
   return {
     id: toStringId(report.id),
     title,
@@ -400,7 +452,7 @@ export async function getIncident(id: string): Promise<Report> {
     priority: mapPriority(report.priority),
     description: report.description ?? "",
     notes: Array.isArray(notes) ? notes.map(mapNote) : [],
-    images: report.images ?? [],
+    images,
     witnesses: Array.isArray(report.witnesses)
       ? report.witnesses.map(mapReportWitness)
       : [],
