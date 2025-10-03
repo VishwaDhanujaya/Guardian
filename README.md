@@ -21,9 +21,11 @@ Guardian is community policing application, essentially an online portal which e
 # 3. Install dependencies
     npm install
 
-# 4. Set env variables by renaming the .env.example file to .env
-# replace necessary values such as your mapbox public token key,
-# set chatbot json file location (after placing the file in the directory) and chatbot project name
+# 4. Set env variables by copying backend/.env.example to backend/.env
+# replace necessary values such as your mapbox public token key.
+# For Dialogflow integration update DF_PROJECT_ID and either
+# GOOGLE_APPLICATION_CREDENTIALS or DF_SERVICE_ACCOUNT_PATH to point to your chatbot
+# service-account JSON (the file itself should stay outside of version control).
 
 # 5. (For Windows) Run the following command in /backend which copies a tensorflow file
 # to another destination which windows fail to do for some reason by its own
