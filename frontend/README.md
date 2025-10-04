@@ -13,6 +13,7 @@ npx react-native-reusables/cli@latest init -t .
 - Refined the color palette for improved contrast while retaining existing tokens.
 - Simplified the citizen safety alerts preview by removing category filters.
 - Added a username field to the citizen sign-up flow.
+- Started the Mapbox integration with a dedicated community map screen.
 
 ## Getting Started
 
@@ -46,6 +47,20 @@ npm run dev
 ```
 
 If the variable is not set, network requests will fail.
+
+### Mapbox maps (preview)
+
+The new community map screen uses [Mapbox Maps](https://www.mapbox.com/). To enable it locally:
+
+1. Create a Mapbox access token with **Styles: Read** permissions.
+2. Export the token before starting Expo:
+
+   ```bash
+   export EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN="pk.your-token-here"
+   npm run dev
+   ```
+
+The map currently runs on iOS and Android using a custom development client or production build. The web fallback will show a message until web support is added.
 
 ## Adding components
 
