@@ -44,6 +44,7 @@ import {
   FileText,
   Inbox,
   LayoutDashboard,
+  Map,
   Megaphone,
   MessageSquare,
   PackageSearch,
@@ -410,6 +411,9 @@ export default function Home() {
   const goOfficerFound = () =>
     router.push({ pathname: '/lost-found/officer-found', params: { role } });
 
+  // Map routes
+  const goCommunityMap = () => router.push({ pathname: '/map', params: { role } });
+
   // Safety alerts routes
   const goCitizenAlerts = () => router.push({ pathname: '/alerts/citizen', params: { role } });
 
@@ -549,8 +553,7 @@ export default function Home() {
                 >
                   <Card className={!layout.isCozy ? 'flex-1' : undefined}>
                     <CardHeader title="Manage" tone="primary" />
-                    {/* Order controls left/right columns:
-                        0 (left), 1 (right), 2 (left), 3 (right) */}
+                    {/* Order controls left/right columns in pairs (0 left, 1 right, etc.). */}
                     <TileGrid
                       tiles={[
                         {
@@ -578,6 +581,12 @@ export default function Home() {
                           onPress: goOfficerFound,
                           variant: 'secondary',
                         }, // right row 2
+                        {
+                          label: 'Command map',
+                          icon: Map,
+                          onPress: goCommunityMap,
+                          variant: 'secondary',
+                        }, // left row 3
                       ]}
                     />
                   </Card>
@@ -659,6 +668,12 @@ export default function Home() {
                             onPress: goCitizenAlerts,
                             variant: 'secondary',
                             count: citizenCounts.alerts,
+                          },
+                          {
+                            label: 'Community Map',
+                            icon: Map,
+                            onPress: goCommunityMap,
+                            variant: 'secondary',
                           },
                         ]}
                       />

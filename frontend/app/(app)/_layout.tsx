@@ -24,6 +24,7 @@ export default function AppLayout() {
       <Stack.Screen name="incidents" />
       <Stack.Screen name="alerts" />
       <Stack.Screen name="lost-found" />
+      <Stack.Screen name="map" />
     </Stack>
   );
 }
