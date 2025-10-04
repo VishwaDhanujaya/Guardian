@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import type { WebViewMessageEvent } from "react-native-webview";
 import { WebView } from "react-native-webview";
+import { Image } from "expo-image";
+import * as Location from "expo-location";
 import { MapPin, X } from "lucide-react-native";
 
 import { toast } from "@/components/toast";
@@ -18,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import {
   DEFAULT_MAPBOX_CENTER,
+  buildStaticMapPreviewUrl,
   formatCoordinates,
   getMapboxAccessToken,
   MapboxLocation,
@@ -72,6 +75,10 @@ const mapHtmlTemplate = (
       href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
       rel="stylesheet"
     />
+    <link
+      href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.css"
+      rel="stylesheet"
+    />
     <style>
       body {
         margin: 0;
@@ -86,6 +93,18 @@ const mapHtmlTemplate = (
         bottom: 0;
         width: 100%;
       }
+      #geocoder {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 2;
+        max-width: 420px;
+      }
+      #geocoder .mapboxgl-ctrl-geocoder {
+        min-width: 100%;
+        width: 100%;
+      }
       .marker {
         position: absolute;
         top: 50%;
@@ -94,7 +113,13 @@ const mapHtmlTemplate = (
         width: 28px;
         height: 28px;
         pointer-events: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23ef4444' d='M16 2.667c-5.154 0-9.333 4.006-9.333 8.944 0 2.755 1.37 5.443 3.2 7.94 1.824 2.493 4.106 4.734 5.642 6.061a1.333 1.333 0 0 0 1.81 0c1.536-1.327 3.818-3.568 5.642-6.061 1.83-2.497 3.2-5.185 3.2-7.94 0-4.938-4.179-8.944-9.333-8.944Zm0 12.777a3.833 3.833 0 1 1 0-7.666 3.833 3.833 0 0 1 0 7.666Z'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='"
+          +
+          "%23ef4444' d='M16 2.667c-5.154 0-9.333 4.006-9.333 8.944 0 2.755 1.37 5.443 3.2 7.94 1.824 2.493 4.106 4.734 5.642 6.061a1.333 1"
+          +
+          ".333 0 0 0 1.81 0c1.536-1.327 3.818-3.568 5.642-6.061 1.83-2.497 3.2-5.185 3.2-7.94 0-4.938-4.179-8.944-9.333-8.944Zm0 12.777a3."
+          +
+          "833 3.833 0 1 1 0-7.666 3.833 3.833 0 0 1 0 7.666Z'/%3E%3C/svg%3E");
         background-size: contain;
       }
       .center-dot {
@@ -111,7 +136,7 @@ const mapHtmlTemplate = (
       }
       .instructions {
         position: absolute;
-        top: 12px;
+        top: 70px;
         left: 50%;
         transform: translateX(-50%);
         padding: 8px 14px;
@@ -141,12 +166,14 @@ const mapHtmlTemplate = (
   </head>
   <body>
     <div id="map"></div>
+    <div id="geocoder"></div>
     <div class="marker"></div>
     <div class="center-dot"></div>
-    <div class="instructions">Drag the map to position the pin</div>
+    <div class="instructions">Drag the map or search for a place</div>
     <button id="confirm" class="confirm-button">Use this location</button>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.min.js"></script>
     <script>
       const accessToken = ${tokenLiteral};
       const initialCenter = ${centerLiteral};
@@ -163,6 +190,66 @@ const mapHtmlTemplate = (
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
+      }
+
+      function applyCenter(lat, lng, animated, zoom) {
+        const center = [lng, lat];
+        const targetZoom = typeof zoom === 'number' && !Number.isNaN(zoom)
+          ? zoom
+          : Math.max(map.getZoom(), 15);
+        if (animated) {
+          map.flyTo({ center, zoom: targetZoom, speed: 1.2, essential: true });
+        } else {
+          map.jumpTo({ center, zoom: targetZoom });
+        }
+      }
+
+      function receive(message) {
+        if (!message) return;
+        try {
+          const payload = typeof message === 'string' ? JSON.parse(message) : message;
+          if (payload?.type === 'setCenter') {
+            const lat = Number(payload.latitude);
+            const lng = Number(payload.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              const animated = payload.animated !== false;
+              const zoom = Number(payload.zoom);
+              applyCenter(lat, lng, animated, Number.isFinite(zoom) ? zoom : undefined);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to handle host message', error);
+        }
+      }
+
+      window.addEventListener('message', (event) => receive(event.data));
+      document.addEventListener('message', (event) => receive(event.data));
+
+      if (typeof MapboxGeocoder === 'function') {
+        const geocoder = new MapboxGeocoder({
+          accessToken,
+          mapboxgl,
+          marker: false,
+          placeholder: 'Search Sri Lanka',
+          flyTo: false,
+          proximity: { longitude: initialCenter[0], latitude: initialCenter[1] },
+          countries: 'lk',
+        });
+        const geocoderContainer = document.getElementById('geocoder');
+        if (geocoderContainer) {
+          geocoder.addTo('#geocoder');
+        } else {
+          map.addControl(geocoder);
+        }
+        geocoder.on('result', (event) => {
+          if (!event?.result?.center) return;
+          const [lng, lat] = event.result.center;
+          applyCenter(lat, lng, true, 16);
+        });
+        geocoder.on('error', (err) => {
+          const message = err?.error?.message || err?.message || 'Search failed';
+          post({ type: 'error', message });
+        });
       }
 
       map.on('load', () => {
@@ -206,9 +293,42 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
   const selectRef = useLatest(onSelect);
   const closeRef = useLatest(onRequestClose);
   const [html, setHtml] = useState<string | null>(null);
+  const webViewRef = useRef<WebView | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const pendingCenterRef = useRef<MapboxLocation | null>(null);
+  const pendingAnimatedRef = useRef(true);
+  const [requestingLocation, setRequestingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [hasAutoCentered, setHasAutoCentered] = useState(false);
+
+  const sendCenterToMap = useCallback(
+    (coords: MapboxLocation, animated = true) => {
+      const message = JSON.stringify({
+        type: "setCenter",
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        animated,
+      });
+      if (mapReady && webViewRef.current) {
+        webViewRef.current.postMessage(message);
+      } else {
+        pendingCenterRef.current = coords;
+        pendingAnimatedRef.current = animated;
+      }
+    },
+    [mapReady],
+  );
 
   useEffect(() => {
     if (!visible) {
+      setHtml(null);
+      setMapReady(false);
+      pendingCenterRef.current = null;
+      pendingAnimatedRef.current = true;
+      setHasAutoCentered(false);
+      setLocationError(null);
+      setRequestingLocation(false);
+      webViewRef.current = null;
       return;
     }
 
@@ -245,14 +365,92 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
     const effectiveLocation = initialLocation ?? DEFAULT_MAPBOX_CENTER;
     setPreview(effectiveLocation);
     if (token) {
+      setMapReady(false);
+      pendingCenterRef.current = null;
+      pendingAnimatedRef.current = true;
       setHtml(mapHtmlTemplate(token, effectiveLocation, colorScheme === "dark" ? "dark" : "light"));
     }
   }, [visible, initialLocation, token, colorScheme]);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    let cancelled = false;
+
+    const locate = async () => {
+      try {
+        setRequestingLocation(true);
+        setLocationError(null);
+        let permission = await Location.getForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (permission.status !== "granted") {
+          permission = await Location.requestForegroundPermissionsAsync();
+          if (cancelled) return;
+        }
+        if (permission.status === "granted") {
+          const current = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (cancelled) return;
+          const coords: MapboxLocation = {
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          };
+          if (!initialLocation && !hasAutoCentered) {
+            setPreview(coords);
+            sendCenterToMap(coords);
+            setHasAutoCentered(true);
+          }
+        } else if (!initialLocation) {
+          setLocationError("Location permission denied. You can still search manually.");
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error(error);
+        setLocationError(error?.message ?? "Unable to fetch current location");
+      } finally {
+        if (!cancelled) {
+          setRequestingLocation(false);
+        }
+      }
+    };
+
+    locate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, initialLocation, hasAutoCentered, sendCenterToMap]);
 
   const handleMessage = useCallback(
     async (event: WebViewMessageEvent) => {
       try {
         const payload = JSON.parse(event.nativeEvent.data) as MapboxMessage;
+        if (payload?.type === "ready") {
+          setMapReady(true);
+          if (pendingCenterRef.current && webViewRef.current) {
+            const coords = pendingCenterRef.current;
+            const animated = pendingAnimatedRef.current;
+            pendingCenterRef.current = null;
+            pendingAnimatedRef.current = true;
+            webViewRef.current.postMessage(
+              JSON.stringify({
+                type: "setCenter",
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                animated,
+              }),
+            );
+          }
+          return;
+        }
+        if (payload?.type === "error") {
+          if (payload.message) {
+            toast.error(payload.message);
+          }
+          return;
+        }
         if (payload?.type === "move" && typeof payload.latitude === "number" && typeof payload.longitude === "number") {
           setPreview({ latitude: payload.latitude, longitude: payload.longitude });
         }
@@ -315,7 +513,12 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
               </Button>
             </View>
           ) : html ? (
-            <WebView source={{ html }} onMessage={handleMessage} style={{ flex: 1 }} />
+            <WebView
+              ref={webViewRef}
+              source={{ html }}
+              onMessage={handleMessage}
+              style={{ flex: 1 }}
+            />
           ) : (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="small" color="#0F172A" />
@@ -323,7 +526,13 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
           )}
         </View>
         <View className="border-t border-border bg-background px-5 py-3">
-          <Text className="text-xs text-muted-foreground">{formatCoordinates(preview.latitude, preview.longitude)}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {formatCoordinates(preview.latitude, preview.longitude)}
+            {requestingLocation ? " · Locating you…" : ""}
+          </Text>
+          {locationError ? (
+            <Text className="mt-1 text-[11px] text-destructive/80">{locationError}</Text>
+          ) : null}
         </View>
         {saving ? (
           <View className="absolute inset-0 z-10 items-center justify-center bg-background/80">
@@ -346,6 +555,52 @@ export function MapboxLocationField({
   allowClear,
 }: LocationFieldProps) {
   const [open, setOpen] = useState(false);
+  const appearance = useColorScheme() ?? "light";
+  const [mapPreviewUrl, setMapPreviewUrl] = useState<string | null>(null);
+  const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
+  const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!value) {
+      setMapPreviewUrl(null);
+      setMapPreviewError(null);
+      setMapPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setMapPreviewLoading(true);
+    setMapPreviewError(null);
+
+    getMapboxAccessToken()
+      .then((token) => {
+        if (cancelled) return;
+        const url = buildStaticMapPreviewUrl(value.latitude, value.longitude, token, {
+          width: 640,
+          height: 360,
+          theme: appearance === "dark" ? "dark" : "light",
+        });
+        setMapPreviewUrl(url);
+      })
+      .catch((error: any) => {
+        console.error(error);
+        if (cancelled) return;
+        setMapPreviewUrl(null);
+        setMapPreviewError("Unable to load map preview");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMapPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [value?.latitude, value?.longitude, appearance]);
 
   const onConfirm = useCallback(
     (location: MapboxLocation) => {
@@ -389,6 +644,36 @@ export function MapboxLocationField({
           >
             <Text className="text-[11px] font-medium text-muted-foreground">Clear location</Text>
           </Pressable>
+        </View>
+      ) : null}
+      {value ? (
+        <View className="overflow-hidden rounded-2xl border border-border bg-muted/20">
+          {mapPreviewUrl ? (
+            <View style={{ height: 180, position: "relative" }}>
+              <Image
+                source={{ uri: mapPreviewUrl }}
+                style={{ width: "100%", height: 180 }}
+                contentFit="cover"
+                transition={200}
+              />
+              <View className="absolute bottom-3 left-3 rounded-full bg-background/90 px-3 py-1">
+                <Text className="text-[11px] text-foreground">
+                  {value.label ?? formatCoordinates(value.latitude, value.longitude)}
+                </Text>
+              </View>
+            </View>
+          ) : mapPreviewLoading ? (
+            <View className="h-40 items-center justify-center bg-muted/40">
+              <ActivityIndicator size="small" color="#0F172A" />
+              <Text className="mt-2 text-[11px] text-muted-foreground">Loading map preview…</Text>
+            </View>
+          ) : (
+            <View className="h-32 items-center justify-center bg-muted/30 px-4">
+              <Text className="text-center text-[11px] text-muted-foreground">
+                {mapPreviewError ?? "Map preview unavailable."}
+              </Text>
+            </View>
+          )}
         </View>
       ) : null}
       <MapboxLocationModal

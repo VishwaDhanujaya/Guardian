@@ -2,7 +2,8 @@
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, useColorScheme, View } from "react-native";
+import { Image } from "expo-image";
 
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   updateLostItem,
   updateLostItemStatus,
 } from "@/lib/api";
+import { buildStaticMapPreviewUrl, getMapboxAccessToken } from "@/lib/mapbox";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -71,6 +73,10 @@ export default function LostFoundView() {
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
+  const colorScheme = useColorScheme() ?? "light";
+  const [mapPreviewUrl, setMapPreviewUrl] = useState<string | null>(null);
+  const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
+  const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -113,6 +119,51 @@ export default function LostFoundView() {
     };
     load();
   }, [id, type]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!item || typeof item.latitude !== "number" || typeof item.longitude !== "number") {
+      setMapPreviewUrl(null);
+      setMapPreviewError(null);
+      setMapPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const lat = item.latitude;
+    const lon = item.longitude;
+
+    setMapPreviewLoading(true);
+    setMapPreviewError(null);
+
+    getMapboxAccessToken()
+      .then((token) => {
+        if (cancelled) return;
+        const url = buildStaticMapPreviewUrl(lat, lon, token, {
+          width: 720,
+          height: 360,
+          theme: colorScheme === "dark" ? "dark" : "light",
+        });
+        setMapPreviewUrl(url);
+      })
+      .catch((error: any) => {
+        console.error(error);
+        if (cancelled) return;
+        setMapPreviewUrl(null);
+        setMapPreviewError("Unable to load map preview");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMapPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item, colorScheme]);
 
   // ⇣ Key change: for officers, always honor the tab they came from
   const section = useMemo<Section | undefined>(() => {
@@ -301,6 +352,38 @@ export default function LostFoundView() {
           {renderField("Model", editing ? draft.model : item.model, (t) => setDraft((d) => ({ ...d, model: t })), editing)}
           {renderField("Serial/IMEI", editing ? draft.serial : item.serial, (t) => setDraft((d) => ({ ...d, serial: t })), editing)}
           {renderField("Colour", editing ? draft.color : item.color, (t) => setDraft((d) => ({ ...d, color: t })), editing)}
+          {!editing
+            ? mapPreviewUrl
+              ? (
+                  <View className="overflow-hidden rounded-2xl border border-border bg-muted/30">
+                    <View style={{ height: 200, position: "relative" }}>
+                      <Image
+                        source={{ uri: mapPreviewUrl }}
+                        style={{ width: "100%", height: 200 }}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                      <View className="absolute bottom-3 left-3 rounded-full bg-background/90 px-3 py-1">
+                        <Text className="text-[11px] text-foreground">{item.lastLocation || "Location"}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )
+              : mapPreviewLoading
+              ? (
+                  <View className="h-40 items-center justify-center rounded-2xl border border-border bg-muted/20">
+                    <ActivityIndicator size="small" color="#0F172A" />
+                    <Text className="mt-2 text-[11px] text-muted-foreground">Loading map preview…</Text>
+                  </View>
+                )
+              : mapPreviewError
+              ? (
+                  <View className="rounded-2xl border border-dashed border-border bg-muted/20 p-3">
+                    <Text className="text-[11px] text-muted-foreground">{mapPreviewError}</Text>
+                  </View>
+                )
+              : null
+            : null}
           {renderField("Last location", editing ? draft.lastLocation : item.lastLocation, (t) => setDraft((d) => ({ ...d, lastLocation: t })), editing)}
           {"branch" in item ? renderField("Police branch", item.branch) : null}
           {"reportedBy" in item ? renderField("Reported by", item.reportedBy) : null}
