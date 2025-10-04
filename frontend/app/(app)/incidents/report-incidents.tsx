@@ -25,12 +25,15 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import { toast } from "@/components/toast";
 import { AppCard, AppScreen, ScreenHeader, SectionHeader } from "@/components/app/shell";
+import { MapboxLocationField } from "@/components/map/MapboxLocationPicker";
+import type { MapboxLocation } from "@/components/map/MapboxLocationPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { createReport, createReportWitness, getIncident } from "@/lib/api";
+import { formatCoordinates } from "@/lib/mapbox";
 
 import {
   AlertTriangle,
@@ -39,7 +42,6 @@ import {
   ChevronRight,
   FilePlus2,
   Image as ImageIcon,
-  MapPin,
   MoreHorizontal,
   NotebookPen,
   Phone,
@@ -100,7 +102,7 @@ export default function ReportIncidents() {
 
   // Form state
   const [category, setCategory] = useState<"Theft" | "Accident" | "Hazard" | "Other">("Accident");
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState<MapboxLocation | null>(null);
 
   // Description (auto-grow + counter)
   const DESC_MAX = 500;
@@ -241,8 +243,7 @@ export default function ReportIncidents() {
     witnesses.length === 0 ||
     (witnesses.every(isWitnessComplete) && !hasDuplicatePhones);
 
-  const canSubmit =
-    location.trim().length > 2 && desc.trim().length > 5 && witnessesValid && !submitting;
+  const canSubmit = Boolean(location) && desc.trim().length > 5 && witnessesValid && !submitting;
 
   /**
    * Submit incident (stub).
@@ -265,7 +266,10 @@ export default function ReportIncidents() {
 
       const detailSegments = [desc.trim()];
       if (category) detailSegments.unshift(`[${category}]`);
-      if (location.trim()) detailSegments.push(`Location: ${location.trim()}`);
+      if (location) {
+        const label = location.label ?? formatCoordinates(location.latitude, location.longitude);
+        detailSegments.push(`Location: ${label}`);
+      }
       if (witnessLines.length > 0) {
         detailSegments.push(["Witnesses:", ...witnessLines].join("\n"));
       }
@@ -274,6 +278,8 @@ export default function ReportIncidents() {
 
       const reportSummary = await createReport({
         description: descriptionPayload,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
         photos: photos.map((photo) => ({
           uri: photo.uri,
           name: photo.name,
@@ -429,22 +435,12 @@ export default function ReportIncidents() {
                 </View>
               </View>
 
-              <View className="gap-2">
-                <Label nativeID="locLabel" className="text-xs font-semibold text-muted-foreground">
-                  <Text className="text-xs text-muted-foreground">Location</Text>
-                </Label>
-                <View className="relative">
-                  <MapPin size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 14 }} />
-                  <Input
-                    aria-labelledby="locLabel"
-                    value={location}
-                    onChangeText={setLocation}
-                    placeholder="e.g. Main St & 5th"
-                    className="h-12 rounded-2xl bg-background/60 pl-11"
-                    returnKeyType="next"
-                  />
-                </View>
-              </View>
+              <MapboxLocationField
+                value={location}
+                onChange={setLocation}
+                allowClear
+                helperText="Pan and zoom the map to drop the pin."
+              />
             </View>
           </View>
 
