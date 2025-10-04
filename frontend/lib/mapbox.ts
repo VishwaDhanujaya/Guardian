@@ -6,8 +6,8 @@ export type MapboxLocation = {
   label?: string;
 };
 
-const DEFAULT_LATITUDE = 7.8731; // Sri Lanka centroid latitude
-const DEFAULT_LONGITUDE = 80.7718; // Sri Lanka centroid longitude
+const DEFAULT_LATITUDE = 6.9271; // Colombo, Sri Lanka latitude
+const DEFAULT_LONGITUDE = 79.8612; // Colombo, Sri Lanka longitude
 
 export const DEFAULT_MAPBOX_CENTER: MapboxLocation = {
   latitude: DEFAULT_LATITUDE,
@@ -90,7 +90,7 @@ export function buildStaticMapPreviewUrl(
     width?: number;
     height?: number;
     zoom?: number;
-    theme?: "light" | "dark";
+    theme?: "light" | "dark" | "monochrome";
   },
 ): string {
   const lat = Number.isFinite(latitude) ? latitude : DEFAULT_MAPBOX_CENTER.latitude;
@@ -101,7 +101,12 @@ export function buildStaticMapPreviewUrl(
   const zoom = Number.isFinite(zoomValue)
     ? Math.max(3, Math.min(20, Number(zoomValue)))
     : 15;
-  const styleId = options?.theme === "dark" ? "mapbox/dark-v11" : "mapbox/streets-v12";
+  const styleId =
+    options?.theme === "dark"
+      ? "mapbox/dark-v11"
+      : options?.theme === "monochrome"
+        ? "mapbox/light-v11"
+        : "mapbox/streets-v12";
   const formattedLat = lat.toFixed(6);
   const formattedLon = lon.toFixed(6);
   const center = `${formattedLon},${formattedLat},${zoom.toFixed(2)},0`;
@@ -113,5 +118,100 @@ export function buildStaticMapPreviewUrl(
     logo: "false",
   });
 
+  if (options?.theme === "monochrome") {
+    query.set("opt", "monochrome");
+  }
+
   return `https://api.mapbox.com/styles/v1/${styleId}/static/${pin}/${center}/${width}x${height}@2x?${query.toString()}`;
+}
+
+export type MapboxSearchResult = MapboxLocation & {
+  id: string;
+  description?: string;
+};
+
+export async function searchMapboxLocations(
+  query: string,
+  options?: {
+    limit?: number;
+    proximity?: MapboxLocation;
+    token?: string;
+    countries?: string;
+  },
+): Promise<MapboxSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const token = options?.token ?? (await getMapboxAccessToken());
+  const searchParams = new URLSearchParams({
+    access_token: token,
+    limit: String(options?.limit ?? 5),
+    language: "en",
+  });
+
+  if (options?.proximity) {
+    searchParams.set(
+      "proximity",
+      `${options.proximity.longitude.toFixed(6)},${options.proximity.latitude.toFixed(6)}`,
+    );
+  }
+
+  if (options?.countries) {
+    searchParams.set("country", options.countries);
+  }
+
+  const requestUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json?${searchParams.toString()}`;
+
+  const response = await fetch(requestUrl);
+  if (!response.ok) {
+    throw new Error(`Search failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    features?: Array<{
+      id?: string;
+      place_name?: string;
+      center?: [number, number];
+      text?: string;
+      context?: Array<{ text?: string }>;
+    }>;
+  };
+
+  const results: MapboxSearchResult[] = [];
+
+  data.features?.forEach((feature) => {
+    if (!feature) {
+      return;
+    }
+
+    const center = Array.isArray(feature.center) ? feature.center : [];
+    const longitude = Number(center[0]);
+    const latitude = Number(center[1]);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return;
+    }
+
+    let description = feature.place_name ?? feature.text ?? "";
+    if (!description && Array.isArray(feature.context)) {
+      description = feature.context.map((ctx) => ctx.text).filter(Boolean).join(", ");
+    }
+    const trimmedDescription = description?.trim();
+
+    results.push({
+      id: feature.id ?? `${longitude},${latitude}`,
+      latitude,
+      longitude,
+      label:
+        trimmedDescription && trimmedDescription.length > 0
+          ? trimmedDescription
+          : formatCoordinates(latitude, longitude),
+      description:
+        trimmedDescription && trimmedDescription.length > 0 ? trimmedDescription : undefined,
+    });
+  });
+
+  return results;
 }

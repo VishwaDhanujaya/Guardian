@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
+  TextInput,
   useColorScheme,
   View,
 } from "react-native";
@@ -12,7 +14,7 @@ import type { WebViewMessageEvent } from "react-native-webview";
 import { WebView } from "react-native-webview";
 import { Image } from "expo-image";
 import * as Location from "expo-location";
-import { MapPin, X } from "lucide-react-native";
+import { LocateFixed, MapPin, X } from "lucide-react-native";
 
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,9 @@ import {
   formatCoordinates,
   getMapboxAccessToken,
   MapboxLocation,
+  MapboxSearchResult,
   reverseGeocodeLocation,
+  searchMapboxLocations,
 } from "@/lib/mapbox";
 
 const INSETS = Platform.select({ ios: 20, android: 0, default: 0 });
@@ -75,10 +79,6 @@ const mapHtmlTemplate = (
       href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
       rel="stylesheet"
     />
-    <link
-      href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.css"
-      rel="stylesheet"
-    />
     <style>
       body {
         margin: 0;
@@ -93,17 +93,8 @@ const mapHtmlTemplate = (
         bottom: 0;
         width: 100%;
       }
-      #geocoder {
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
-        z-index: 2;
-        max-width: 420px;
-      }
-      #geocoder .mapboxgl-ctrl-geocoder {
-        min-width: 100%;
-        width: 100%;
+      .mapboxgl-canvas {
+        filter: grayscale(1) contrast(1.1);
       }
       .marker {
         position: absolute;
@@ -166,14 +157,12 @@ const mapHtmlTemplate = (
   </head>
   <body>
     <div id="map"></div>
-    <div id="geocoder"></div>
     <div class="marker"></div>
     <div class="center-dot"></div>
-    <div class="instructions">Drag the map or search for a place</div>
+    <div class="instructions">Drag the map or use the search above</div>
     <button id="confirm" class="confirm-button">Use this location</button>
 
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.min.js"></script>
     <script>
       const accessToken = ${tokenLiteral};
       const initialCenter = ${centerLiteral};
@@ -225,33 +214,6 @@ const mapHtmlTemplate = (
       window.addEventListener('message', (event) => receive(event.data));
       document.addEventListener('message', (event) => receive(event.data));
 
-      if (typeof MapboxGeocoder === 'function') {
-        const geocoder = new MapboxGeocoder({
-          accessToken,
-          mapboxgl,
-          marker: false,
-          placeholder: 'Search Sri Lanka',
-          flyTo: false,
-          proximity: { longitude: initialCenter[0], latitude: initialCenter[1] },
-          countries: 'lk',
-        });
-        const geocoderContainer = document.getElementById('geocoder');
-        if (geocoderContainer) {
-          geocoder.addTo('#geocoder');
-        } else {
-          map.addControl(geocoder);
-        }
-        geocoder.on('result', (event) => {
-          if (!event?.result?.center) return;
-          const [lng, lat] = event.result.center;
-          applyCenter(lat, lng, true, 16);
-        });
-        geocoder.on('error', (err) => {
-          const message = err?.error?.message || err?.message || 'Search failed';
-          post({ type: 'error', message });
-        });
-      }
-
       map.on('load', () => {
         post({ type: 'ready' });
       });
@@ -285,10 +247,13 @@ const useLatest = <T,>(value: T): MutableRefObject<T> => {
 
 function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClose }: MapModalProps) {
   const colorScheme = useColorScheme() ?? "light";
+  const isDarkMode = colorScheme === "dark";
+  const indicatorColor = isDarkMode ? "#f8fafc" : "#0F172A";
   const [token, setToken] = useState<string | null>(null);
   const [loadingToken, setLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MapboxLocation>(initialLocation ?? DEFAULT_MAPBOX_CENTER);
+  const previewRef = useLatest(preview);
   const [saving, setSaving] = useState(false);
   const selectRef = useLatest(onSelect);
   const closeRef = useLatest(onRequestClose);
@@ -300,6 +265,12 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
   const [requestingLocation, setRequestingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<MapboxSearchResult[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendCenterToMap = useCallback(
     (coords: MapboxLocation, animated = true) => {
@@ -328,6 +299,15 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
       setHasAutoCentered(false);
       setLocationError(null);
       setRequestingLocation(false);
+      setSearchQuery("");
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchFocused(false);
+      setSearching(false);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
       webViewRef.current = null;
       return;
     }
@@ -372,56 +352,157 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
     }
   }, [visible, initialLocation, token, colorScheme]);
 
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    let cancelled = false;
-
-    const locate = async () => {
+  const locateUser = useCallback(
+    async (options?: { centerOnSuccess?: boolean; markAutoCentered?: boolean }) => {
       try {
         setRequestingLocation(true);
         setLocationError(null);
         let permission = await Location.getForegroundPermissionsAsync();
-        if (cancelled) return;
         if (permission.status !== "granted") {
           permission = await Location.requestForegroundPermissionsAsync();
-          if (cancelled) return;
         }
         if (permission.status === "granted") {
           const current = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
-          if (cancelled) return;
           const coords: MapboxLocation = {
             latitude: current.coords.latitude,
             longitude: current.coords.longitude,
           };
-          if (!initialLocation && !hasAutoCentered) {
-            setPreview(coords);
-            sendCenterToMap(coords);
+          setPreview((prev) => ({ ...prev, ...coords }));
+          if (options?.centerOnSuccess !== false) {
+            sendCenterToMap(coords, true);
+          }
+          if (options?.markAutoCentered) {
             setHasAutoCentered(true);
           }
-        } else if (!initialLocation) {
-          setLocationError("Location permission denied. You can still search manually.");
+          return coords;
         }
+        const deniedMessage = "Location permission denied. You can still search manually.";
+        setLocationError(deniedMessage);
+        if (options?.markAutoCentered) {
+          setHasAutoCentered(true);
+        }
+        return null;
       } catch (error: any) {
-        if (cancelled) return;
         console.error(error);
         setLocationError(error?.message ?? "Unable to fetch current location");
+        return null;
+      } finally {
+        setRequestingLocation(false);
+      }
+    },
+    [sendCenterToMap],
+  );
+
+  useEffect(() => {
+    if (!visible || initialLocation || hasAutoCentered) {
+      return;
+    }
+
+    locateUser({ centerOnSuccess: true, markAutoCentered: true }).catch((error) => {
+      console.error("Failed to auto locate", error);
+    });
+  }, [visible, initialLocation, hasAutoCentered, locateUser]);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    if (!searchFocused) {
+      setSearching(false);
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+
+    const trimmed = searchQuery.trim();
+
+    if (!token || !trimmed) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    let cancelled = false;
+
+    const timeout = setTimeout(async () => {
+      try {
+        const results = await searchMapboxLocations(trimmed, {
+          token,
+          proximity: previewRef.current,
+          countries: "lk",
+        });
+        if (cancelled) {
+          return;
+        }
+        setSearchResults(results);
+        setSearchError(results.length === 0 ? "No matching places found." : null);
+      } catch (error: any) {
+        if (cancelled) {
+          return;
+        }
+        console.error(error);
+        setSearchResults([]);
+        setSearchError(error?.message ?? "Search failed");
       } finally {
         if (!cancelled) {
-          setRequestingLocation(false);
+          setSearching(false);
         }
       }
-    };
+    }, 350);
 
-    locate();
+    searchDebounceRef.current = timeout;
 
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
+      if (searchDebounceRef.current === timeout) {
+        searchDebounceRef.current = null;
+      }
     };
-  }, [visible, initialLocation, hasAutoCentered, sendCenterToMap]);
+  }, [visible, token, searchQuery, previewRef, searchFocused]);
+
+  const handleSelectSearchResult = useCallback(
+    (result: MapboxSearchResult) => {
+      const coords: MapboxLocation = {
+        latitude: result.latitude,
+        longitude: result.longitude,
+        label: result.label,
+      };
+      setPreview(coords);
+      sendCenterToMap(coords, true);
+      setSearchQuery(result.label ?? "");
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchFocused(false);
+      Keyboard.dismiss();
+    },
+    [sendCenterToMap],
+  );
+
+  const handleUseMyLocation = useCallback(() => {
+    setSearchFocused(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchError(null);
+    locateUser({ centerOnSuccess: true }).catch((error) => {
+      console.error("Failed to locate user on demand", error);
+    });
+    Keyboard.dismiss();
+  }, [locateUser]);
+
+  const shouldShowSearchResults =
+    searchFocused &&
+    (searchQuery.trim().length > 0 || searching || searchResults.length > 0 || Boolean(searchError));
 
   const handleMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -452,7 +533,11 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
           return;
         }
         if (payload?.type === "move" && typeof payload.latitude === "number" && typeof payload.longitude === "number") {
-          setPreview({ latitude: payload.latitude, longitude: payload.longitude });
+          setPreview((prev) => ({
+            ...prev,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+          }));
         }
         if (payload?.type === "confirm" && typeof payload.latitude === "number" && typeof payload.longitude === "number") {
           if (!token) {
@@ -490,13 +575,13 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
             }}
             className="h-9 w-9 items-center justify-center rounded-full bg-muted"
           >
-            <X size={18} color="#0F172A" />
+            <X size={18} color={indicatorColor} />
           </Pressable>
         </View>
         <View className="flex-1 bg-background">
           {loadingToken ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#0F172A" />
+              <ActivityIndicator size="large" color={indicatorColor} />
               <Text className="mt-3 text-sm text-muted-foreground">Loading map…</Text>
             </View>
           ) : tokenError ? (
@@ -513,15 +598,95 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
               </Button>
             </View>
           ) : html ? (
-            <WebView
-              ref={webViewRef}
-              source={{ html }}
-              onMessage={handleMessage}
-              style={{ flex: 1 }}
-            />
+            <View style={{ flex: 1 }}>
+              <WebView
+                ref={webViewRef}
+                source={{ html }}
+                onMessage={handleMessage}
+                style={{ flex: 1 }}
+              />
+              <View pointerEvents="box-none" className="absolute inset-0">
+                <View
+                  pointerEvents="box-none"
+                  style={{ paddingTop: (INSETS ?? 0) + 12 }}
+                  className="gap-3 px-5"
+                >
+                  <View className="flex-row items-center rounded-full border border-border bg-background/95 px-4 py-2 shadow-sm shadow-black/10">
+                    <TextInput
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder="Search for a place"
+                      placeholderTextColor={isDarkMode ? "#94a3b8" : "#64748b"}
+                      returnKeyType="search"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setSearchFocused(false)}
+                      style={{
+                        flex: 1,
+                        color: isDarkMode ? "#f8fafc" : "#0F172A",
+                        fontSize: 14,
+                        fontWeight: "500",
+                        paddingVertical: 0,
+                      }}
+                    />
+                    {searching ? (
+                      <View className="ml-2">
+                        <ActivityIndicator size="small" color={indicatorColor} />
+                      </View>
+                    ) : null}
+                  </View>
+                  {shouldShowSearchResults ? (
+                    <View className="max-h-60 overflow-hidden rounded-3xl border border-border bg-background/95 shadow-xl shadow-black/10">
+                      {searching ? (
+                        <View className="items-center justify-center px-4 py-6">
+                          <ActivityIndicator size="small" color={indicatorColor} />
+                          <Text className="mt-2 text-xs text-muted-foreground">Searching…</Text>
+                        </View>
+                      ) : searchResults.length > 0 ? (
+                        searchResults.map((result) => (
+                          <Pressable
+                            key={result.id}
+                            onPress={() => handleSelectSearchResult(result)}
+                            className="border-b border-border/60 px-4 py-3 last:border-b-0"
+                          >
+                            <Text className="text-sm font-medium text-foreground">{result.label}</Text>
+                          </Pressable>
+                        ))
+                      ) : (
+                        <View className="px-4 py-3">
+                          <Text className="text-xs text-muted-foreground">
+                            {searchError ?? "No matching places found."}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : null}
+                  <View className="flex-row">
+                    <Pressable
+                      onPress={() => {
+                        if (requestingLocation) return;
+                        handleUseMyLocation();
+                      }}
+                      className="flex-row items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-2 shadow-sm shadow-black/5"
+                      android_ripple={{ color: "rgba(15,23,42,0.08)", borderless: false }}
+                    >
+                      {requestingLocation ? (
+                        <ActivityIndicator size="small" color={indicatorColor} />
+                      ) : (
+                        <LocateFixed size={16} color={indicatorColor} />
+                      )}
+                      <Text className="text-xs font-medium text-foreground">
+                        {requestingLocation ? "Finding your location…" : "Use my location"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            </View>
           ) : (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="small" color="#0F172A" />
+              <ActivityIndicator size="small" color={indicatorColor} />
             </View>
           )}
         </View>
@@ -536,7 +701,7 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
         </View>
         {saving ? (
           <View className="absolute inset-0 z-10 items-center justify-center bg-background/80">
-            <ActivityIndicator size="large" color="#0F172A" />
+            <ActivityIndicator size="large" color={indicatorColor} />
             <Text className="mt-3 text-sm text-muted-foreground">Saving location…</Text>
           </View>
         ) : null}
@@ -556,6 +721,8 @@ export function MapboxLocationField({
 }: LocationFieldProps) {
   const [open, setOpen] = useState(false);
   const appearance = useColorScheme() ?? "light";
+  const iconColor = appearance === "dark" ? "#e2e8f0" : "#0F172A";
+  const previewIndicatorColor = appearance === "dark" ? "#f8fafc" : "#0F172A";
   const [mapPreviewUrl, setMapPreviewUrl] = useState<string | null>(null);
   const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
   const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
@@ -581,7 +748,7 @@ export function MapboxLocationField({
         const url = buildStaticMapPreviewUrl(value.latitude, value.longitude, token, {
           width: 640,
           height: 360,
-          theme: appearance === "dark" ? "dark" : "light",
+          theme: "monochrome",
         });
         setMapPreviewUrl(url);
       })
@@ -629,7 +796,7 @@ export function MapboxLocationField({
         className="flex-row items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3"
         android_ripple={{ color: "rgba(15,23,42,0.08)" }}
       >
-        <MapPin size={18} color="#0F172A" />
+        <MapPin size={18} color={iconColor} />
         <View className="flex-1">
           <Text className="text-sm font-medium text-foreground">{description}</Text>
           <Text className="text-[11px] text-muted-foreground">{subtitle}</Text>
@@ -664,7 +831,7 @@ export function MapboxLocationField({
             </View>
           ) : mapPreviewLoading ? (
             <View className="h-40 items-center justify-center bg-muted/40">
-              <ActivityIndicator size="small" color="#0F172A" />
+              <ActivityIndicator size="small" color={previewIndicatorColor} />
               <Text className="mt-2 text-[11px] text-muted-foreground">Loading map preview…</Text>
             </View>
           ) : (
