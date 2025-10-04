@@ -149,6 +149,19 @@ function formatLocation(latitude?: number | null, longitude?: number | null): st
   return "Not specified";
 }
 
+export async function fetchMapboxToken(): Promise<string> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>("/api/v1/map-box/token"),
+  );
+
+  const token = (data?.token ?? data?.mapBoxToken ?? data) as string | undefined;
+  if (typeof token === "string" && token.trim().length > 0) {
+    return token.trim();
+  }
+
+  throw new Error("Mapbox token is not available");
+}
+
 export type ItemNote = { id: string; text: string; at: string; by: string };
 
 function mapNote(note: any): ItemNote {

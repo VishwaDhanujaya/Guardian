@@ -6,12 +6,15 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import { toast } from "@/components/toast";
 import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
+import { MapboxLocationField } from "@/components/map/MapboxLocationPicker";
+import type { MapboxLocation } from "@/components/map/MapboxLocationPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import useMountAnimation from "@/hooks/useMountAnimation";
 import { createFoundItem, fetchLostItems, LostItemDetail } from "@/lib/api";
+import { formatCoordinates } from "@/lib/mapbox";
 
 import { Inbox, MapPin, Megaphone, PackageSearch, Plus } from "lucide-react-native";
 
@@ -95,7 +98,7 @@ export default function OfficerFound() {
   const [desc, setDesc] = useState("");
   const [model, setModel] = useState("");
   const [serial, setSerial] = useState("");
-  const [lastLoc, setLastLoc] = useState("");
+  const [location, setLocation] = useState<MapboxLocation | null>(null);
   const [color, setColor] = useState("");
   const [branch, setBranch] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -105,7 +108,7 @@ export default function OfficerFound() {
     setDesc("");
     setModel("");
     setSerial("");
-    setLastLoc("");
+    setLocation(null);
     setColor("");
     setBranch("");
   };
@@ -117,15 +120,14 @@ export default function OfficerFound() {
     const trimmedSerial = serial.trim();
     const trimmedColor = color.trim();
     const trimmedBranch = branch.trim();
-    const trimmedLocation = lastLoc.trim();
-
-    if (!trimmedName || !trimmedLocation || !trimmedBranch) {
+    if (!trimmedName || !location || !trimmedBranch) {
       toast.error("Please fill the required fields");
       return;
     }
 
     try {
       setSubmitting(true);
+      const locationLabel = location.label ?? formatCoordinates(location.latitude, location.longitude);
       const created = await createFoundItem({
         name: trimmedName,
         description: trimmedDesc || undefined,
@@ -133,12 +135,12 @@ export default function OfficerFound() {
         serial: trimmedSerial || undefined,
         color: trimmedColor || undefined,
         branch: trimmedBranch,
-        latitude: 0,
-        longitude: 0,
+        latitude: location.latitude,
+        longitude: location.longitude,
       });
       const card = {
         ...toFoundItemCard(created),
-        lastLocation: trimmedLocation || created.lastLocation,
+        lastLocation: locationLabel || created.lastLocation,
         branch: trimmedBranch,
       };
       setItems((prev) => [card, ...prev]);
@@ -218,10 +220,13 @@ export default function OfficerFound() {
                 <Label>Police branch</Label>
                 <Input value={branch} onChangeText={setBranch} placeholder="Where the item is kept" />
               </View>
-              <View className="gap-1">
-                <Label>Last location*</Label>
-                <Input value={lastLoc} onChangeText={setLastLoc} placeholder="Where it was found" />
-              </View>
+              <MapboxLocationField
+                label="Last location"
+                value={location}
+                onChange={setLocation}
+                required
+                helperText="Pin where the item was recovered."
+              />
 
               <View className="flex-row items-center justify-end gap-2">
                 <Button
