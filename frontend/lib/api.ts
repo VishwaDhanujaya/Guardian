@@ -149,6 +149,30 @@ function formatLocation(latitude?: number | null, longitude?: number | null): st
   return "Not specified";
 }
 
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+export async function fetchMapboxToken(): Promise<string> {
+  const data = await unwrap<any>(
+    apiService.get<ApiEnvelope<any>>("/api/v1/map-box/token"),
+  );
+
+  const token = (data?.token ?? data?.mapBoxToken ?? data) as string | undefined;
+  if (typeof token === "string" && token.trim().length > 0) {
+    return token.trim();
+  }
+
+  throw new Error("Mapbox token is not available");
+}
+
 export type ItemNote = { id: string; text: string; at: string; by: string };
 
 function mapNote(note: any): ItemNote {
@@ -281,6 +305,8 @@ export type Report = {
   title: string;
   category: "Safety" | "Crime" | "Maintenance" | "Other";
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   reportedBy: string;
   reportedAt: string;
   status: FrontendReportStatus;
@@ -441,11 +467,22 @@ export async function getIncident(id: string): Promise<Report> {
         .map((token) => toSignedFileUrl(token))
         .filter((url): url is string => typeof url === "string" && url.length > 0)
     : [];
+  const latitude = toNumberOrNull(report.latitude);
+  const longitude = toNumberOrNull(report.longitude);
+  const locationText = (() => {
+    if (latitude != null && longitude != null) {
+      return formatLocation(latitude, longitude);
+    }
+    const fallback = typeof report.location === "string" ? report.location.trim() : "";
+    return fallback.length > 0 ? fallback : formatLocation(undefined, undefined);
+  })();
   return {
     id: toStringId(report.id),
     title,
     category: "Safety",
-    location: formatLocation(report.latitude, report.longitude),
+    location: locationText,
+    latitude,
+    longitude,
     reportedBy: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
     reportedAt: formatRelative(report.createdAt ?? report.created_at ?? null),
     status: mapReportStatus(report.status),
@@ -545,6 +582,8 @@ export type FoundItemDetail = {
   serial?: string;
   color?: string;
   lastLocation?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   branch?: string;
   status?: LostFrontendStatus;
   createdAt?: string | null;
@@ -581,6 +620,13 @@ export async function fetchFoundItems(): Promise<FoundItem[]> {
 }
 
 function mapLostItem(item: any): FoundItemDetail {
+  const latitude = toNumberOrNull(item?.latitude);
+  const longitude = toNumberOrNull(item?.longitude);
+  const fallbackLocation = typeof item?.last_location === "string" ? item.last_location.trim() : "";
+  const lastLocation =
+    latitude != null && longitude != null
+      ? formatLocation(latitude, longitude)
+      : fallbackLocation;
   return {
     id: toStringId(item?.id),
     name: item?.name ?? "",
@@ -588,7 +634,9 @@ function mapLostItem(item: any): FoundItemDetail {
     model: item?.model ?? "",
     serial: item?.serial_number ?? "",
     color: item?.color ?? "",
-    lastLocation: item?.latitude && item?.longitude ? formatLocation(item.latitude, item.longitude) : item?.last_location ?? "",
+    lastLocation,
+    latitude,
+    longitude,
     branch: item?.branch ?? "",
     status: mapLostStatusFromBackend(item?.status ?? undefined),
     createdAt: item?.created_at ?? null,

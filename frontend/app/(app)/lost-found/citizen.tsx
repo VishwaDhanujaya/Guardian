@@ -5,6 +5,8 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import { AppCard, AppScreen, SectionHeader, ScreenHeader } from "@/components/app/shell";
 import { toast } from "@/components/toast";
+import { MapboxLocationField } from "@/components/map/MapboxLocationPicker";
+import type { MapboxLocation } from "@/components/map/MapboxLocationPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +56,7 @@ export default function CitizenLostFound() {
   const [serial, setSerial] = useState("");
   const [color, setColor] = useState("");
   const [branch, setBranch] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [location, setLocation] = useState<MapboxLocation | null>(null);
   const resetForm = () => {
     setItemName("");
     setDesc("");
@@ -63,20 +64,18 @@ export default function CitizenLostFound() {
     setSerial("");
     setColor("");
     setBranch("");
-    setLatitude("");
-    setLongitude("");
+    setLocation(null);
   };
 
   const [submitting, setSubmitting] = useState(false);
   const submitLost = async () => {
-    if (!itemName || !branch || !latitude || !longitude) {
+    if (!itemName || !branch || !location) {
       toast.error("Please fill required fields");
       return;
     }
-    const latNum = Number(latitude);
-    const lonNum = Number(longitude);
-    if (Number.isNaN(latNum) || Number.isNaN(lonNum)) {
-      toast.error("Coordinates must be valid numbers");
+    const { latitude, longitude } = location;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      toast.error("Location coordinates are invalid");
       return;
     }
     try {
@@ -88,8 +87,8 @@ export default function CitizenLostFound() {
         serial,
         color,
         branch,
-        latitude: latNum,
-        longitude: lonNum,
+        latitude,
+        longitude,
         status: "PENDING",
       });
       toast.success("Lost item reported");
@@ -264,14 +263,13 @@ export default function CitizenLostFound() {
                   <Label>Police branch*</Label>
                   <Input value={branch} onChangeText={setBranch} />
                 </View>
-                <View className="gap-1">
-                  <Label>Latitude*</Label>
-                  <Input value={latitude} onChangeText={setLatitude} keyboardType="numeric" />
-                </View>
-                <View className="gap-1">
-                  <Label>Longitude*</Label>
-                  <Input value={longitude} onChangeText={setLongitude} keyboardType="numeric" />
-                </View>
+                <MapboxLocationField
+                  label="Last seen location"
+                  value={location}
+                  onChange={setLocation}
+                  required
+                  helperText="Drop a pin where you last had the item."
+                />
                 <Button onPress={submitLost} className="mt-2 h-12 rounded-full" disabled={submitting}>
                   {submitting ? (
                     <ActivityIndicator color="#fff" />

@@ -8,7 +8,7 @@ import {
   useState,
   createElement,
 } from "react";
-import { ActivityIndicator, Animated, Keyboard, Linking, Pressable, ScrollView, Switch, View } from "react-native";
+import { ActivityIndicator, Animated, Keyboard, Linking, Pressable, ScrollView, Switch, useColorScheme, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Image } from "expo-image";
 
@@ -24,6 +24,7 @@ import {
   Report,
   updateReportStatus,
 } from "@/lib/api";
+import { buildStaticMapPreviewUrl, getMapboxAccessToken } from "@/lib/mapbox";
 
 import {
   AlertTriangle,
@@ -95,6 +96,10 @@ export default function ViewIncident() {
   const [loadError, setLoadError] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
+  const colorScheme = useColorScheme() ?? "light";
+  const [mapPreviewUrl, setMapPreviewUrl] = useState<string | null>(null);
+  const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
+  const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -114,6 +119,51 @@ export default function ViewIncident() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!report || typeof report.latitude !== "number" || typeof report.longitude !== "number") {
+      setMapPreviewUrl(null);
+      setMapPreviewError(null);
+      setMapPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const lat = report.latitude;
+    const lon = report.longitude;
+
+    setMapPreviewLoading(true);
+    setMapPreviewError(null);
+
+    getMapboxAccessToken()
+      .then((token) => {
+        if (cancelled) return;
+        const url = buildStaticMapPreviewUrl(lat, lon, token, {
+          width: 720,
+          height: 400,
+          theme: colorScheme === "dark" ? "dark" : "light",
+        });
+        setMapPreviewUrl(url);
+      })
+      .catch((error: any) => {
+        console.error(error);
+        if (cancelled) return;
+        setMapPreviewUrl(null);
+        setMapPreviewError("Unable to load map preview");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMapPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [report, colorScheme]);
 
   const [showUpdate, setShowUpdate] = useState<boolean>(false);
   const [showNotes, setShowNotes] = useState<boolean>(false);
@@ -367,6 +417,31 @@ export default function ViewIncident() {
                 <Text className={`text-[11px] font-medium ${prioPill(priority).text}`}>Priority: {priority}</Text>
               </View>
             </View>
+
+            {mapPreviewUrl ? (
+              <View className="overflow-hidden rounded-xl border border-border bg-background">
+                <View style={{ height: 200, position: "relative" }}>
+                  <Image
+                    source={{ uri: mapPreviewUrl }}
+                    style={{ width: "100%", height: 200 }}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                  <View className="absolute bottom-3 left-3 rounded-full bg-background/90 px-3 py-1">
+                    <Text className="text-[11px] text-foreground">{report.location}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : mapPreviewLoading ? (
+              <View className="h-40 items-center justify-center rounded-xl border border-border bg-background">
+                <ActivityIndicator size="small" color="#0F172A" />
+                <Text className="mt-2 text-[11px] text-muted-foreground">Loading map preview…</Text>
+              </View>
+            ) : mapPreviewError ? (
+              <View className="rounded-xl border border-dashed border-border bg-muted/30 p-3">
+                <Text className="text-[11px] text-muted-foreground">{mapPreviewError}</Text>
+              </View>
+            ) : null}
 
             {/* Description */}
             {report.description ? (
