@@ -243,6 +243,8 @@ export default function ReportIncidents() {
     witnesses.length === 0 ||
     (witnesses.every(isWitnessComplete) && !hasDuplicatePhones);
 
+  const nearingLimit = desc.length >= DESC_MAX - 20;
+
   const canSubmit = Boolean(location) && desc.trim().length > 5 && witnessesValid && !submitting;
 
   /**
