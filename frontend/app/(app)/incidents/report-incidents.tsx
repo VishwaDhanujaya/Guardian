@@ -265,7 +265,7 @@ export default function ReportIncidents() {
       });
 
       const detailSegments = [desc.trim()];
-      if (category) detailSegments.unshift(`[${category}]`);
+      if (category) detailSegments.push(`Category: ${category}`);
       if (location) {
         const label = location.label ?? formatCoordinates(location.latitude, location.longitude);
         detailSegments.push(`Location: ${label}`);
@@ -401,12 +401,22 @@ export default function ReportIncidents() {
                 </View>
               </View>
 
+              <View className="flex-row items-start gap-3 rounded-3xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <AlertTriangle size={16} color="#4338CA" style={{ marginTop: 2 }} />
+                <View className="flex-1">
+                  <Text className="text-xs font-semibold text-primary">Be as specific as possible</Text>
+                  <Text className="mt-1 text-[11px] text-primary/80">
+                    Include the timeline, people involved, and any evidence or photos so officers can respond quickly.
+                  </Text>
+                </View>
+              </View>
+
               <View className="gap-2">
                 <Label nativeID="descLabel" className="text-xs font-semibold text-muted-foreground">
                   <Text className="text-xs text-muted-foreground">Description</Text>
                 </Label>
-                <View className="relative">
-                  <NotebookPen size={16} color="#94A3B8" style={{ position: "absolute", left: 14, top: 16 }} />
+                <View className="relative overflow-hidden rounded-3xl border border-border/80 bg-background/80 shadow-sm shadow-black/5">
+                  <NotebookPen size={16} color="#64748B" style={{ position: "absolute", left: 18, top: 18 }} />
                   <Input
                     aria-labelledby="descLabel"
                     value={desc}
@@ -416,22 +426,11 @@ export default function ReportIncidents() {
                       setDescHeight(Math.max(100, Math.min(h, 220)));
                     }}
                     placeholder="What happened?"
-                    className="rounded-2xl bg-background/60 pl-11"
-                    style={{ minHeight: 120, height: descHeight, paddingTop: 16, textAlignVertical: "top" }}
+                    className="rounded-3xl border-0 bg-transparent pl-12 pr-4"
+                    style={{ minHeight: 128, height: descHeight, paddingTop: 18, textAlignVertical: "top" }}
                     multiline
                     maxLength={DESC_MAX}
                   />
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[11px] text-muted-foreground">Be as specific as possible.</Text>
-                  <Text
-                    className={
-                      "text-[11px] font-medium " +
-                      (desc.length >= DESC_MAX - 20 ? "text-destructive" : "text-muted-foreground")
-                    }
-                  >
-                    {desc.length}/{DESC_MAX}
-                  </Text>
                 </View>
               </View>
 
