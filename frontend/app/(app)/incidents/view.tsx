@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   createElement,
+  type ReactNode,
 } from "react";
 import { ActivityIndicator, Animated, Keyboard, Linking, Pressable, ScrollView, Switch, useColorScheme, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
