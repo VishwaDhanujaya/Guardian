@@ -299,6 +299,7 @@ export type ReportSummary = {
   suggestedPriority: ReportPriority;
   rawStatus: BackendReportStatus;
   category?: string | null;
+  createdAt?: string | null;
 };
 
 export type Report = {
@@ -473,6 +474,7 @@ export async function createReport(
     suggestedPriority: mapPriority(data?.priority),
     rawStatus: (data?.status as BackendReportStatus) ?? "PENDING",
     category: parsed.category,
+    createdAt: data?.createdAt ?? data?.created_at ?? null,
   };
 }
 
@@ -514,6 +516,7 @@ export async function fetchReports(): Promise<ReportSummary[]> {
       suggestedPriority: mapPriority(report.priority),
       rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
       category: parsed.category,
+      createdAt: report.createdAt ?? report.created_at ?? null,
     };
   });
 }

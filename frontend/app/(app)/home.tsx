@@ -1,16 +1,6 @@
 // app/home.tsx
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type FC,
-  type ReactNode,
-} from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type FC, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -28,7 +18,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { fetchAlerts, fetchLostItems, fetchReports, formatRelativeTime, type AlertRow, type LostItemDetail, type ReportSummary } from '@/lib/api';
+import {
+  fetchAlerts,
+  fetchLostItems,
+  fetchReports,
+  formatRelativeTime,
+  type AlertRow,
+  type LostItemDetail,
+  type ReportSummary,
+} from '@/lib/api';
+import {
+  alertIconForType,
+  buildActivityFeed,
+  formatAlertCategory,
+  resolveAlertListTone,
+  type IconType,
+  type Tone,
+} from '@/lib/dashboard-activity';
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -56,9 +62,6 @@ import {
 } from 'lucide-react-native';
 
 type Role = 'citizen' | 'officer';
-type IconType = ComponentType<{ size?: number; color?: string }>;
-type Tone = 'primary' | 'ring' | 'accent' | 'destructive' | 'foreground';
-
 /** Tailwind tone → class maps (BG/Text variants and faint BG) */
 const TONE_BG: Record<Tone, string> = {
   primary: 'bg-primary',
@@ -236,49 +239,10 @@ export default function Home() {
     [alerts],
   );
 
-  const citizenRecent = useMemo<ListItem[]>(() => {
-    const items: ListItem[] = [];
-    reports.slice(0, 2).forEach((report) => {
-      items.push({
-        id: `report-${report.id}`,
-        title: `Reported: ${report.title}`,
-        meta: `${report.status} · ${report.reportedAgo}`,
-        icon: FileText,
-        tone:
-          report.status === 'Resolved'
-            ? 'accent'
-            : report.status === 'New' || report.status === 'In Review'
-            ? 'primary'
-            : 'ring',
-      });
-    });
-
-    if (lostItems.length > 0) {
-      const first = lostItems[0];
-      items.push({
-        id: `lost-${first.id}`,
-        title: `Lost item: ${first.name}`,
-        meta: [first.status ?? 'New', formatRelativeTime(first.createdAt ?? null)]
-          .filter(Boolean)
-          .join(' · '),
-        icon: PackageSearch,
-        tone: 'accent',
-      });
-    }
-
-    if (alerts.length > 0) {
-      const firstAlert = alerts[0];
-      items.push({
-        id: `alert-${firstAlert.id}`,
-        title: `Alert viewed: ${firstAlert.title}`,
-        meta: formatRelativeTime(firstAlert.createdAt ?? null),
-        icon: BellRing,
-        tone: 'ring',
-      });
-    }
-
-    return items.slice(0, 4);
-  }, [reports, lostItems, alerts]);
+  const citizenRecent = useMemo<ListItem[]>(
+    () => buildActivityFeed(reports, lostItems, alerts, { limit: 4 }),
+    [alerts, lostItems, reports],
+  );
 
   const officerQueue = useMemo<ListItem[]>(
     () =>
@@ -734,44 +698,6 @@ function getGreeting(hour: number): 'Good morning' | 'Good afternoon' | 'Good ev
   return 'Good evening';
 }
 
-function formatAlertCategory(type?: string): string {
-  if (!type) return 'General';
-  return type
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
-}
-
-function resolveAlertListTone(type?: string): Tone {
-  if (!type) return 'ring';
-  const key = type.toLowerCase();
-  if (key.includes('emergency') || key.includes('urgent') || key.includes('critical')) {
-    return 'destructive';
-  }
-  if (key.includes('weather') || key.includes('storm') || key.includes('rain')) {
-    return 'primary';
-  }
-  if (key.includes('maintenance') || key.includes('power') || key.includes('utility')) {
-    return 'accent';
-  }
-  return 'ring';
-}
-
-function alertIconForType(type?: string): IconType {
-  const key = type?.toLowerCase() ?? '';
-  if (key.includes('emergency') || key.includes('critical')) {
-    return AlertTriangle;
-  }
-  if (key.includes('weather') || key.includes('storm') || key.includes('rain')) {
-    return BellRing;
-  }
-  if (key.includes('power') || key.includes('maintenance') || key.includes('utility')) {
-    return SunMedium;
-  }
-  return Megaphone;
-}
-
 /* -------------------- UI Partials -------------------- */
 
 /** Card container with standard padding, border, and rounded corners. */
@@ -957,7 +883,7 @@ type ListItem = {
   meta?: string;
   icon: IconType;
   tone: Tone;
-  category?: string;
+  occurredAt?: number;
 };
 
 /** Empty state block used by list/timeline components. */
