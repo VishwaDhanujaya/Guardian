@@ -509,7 +509,7 @@ export default function Home() {
                 </View>
 
                 <Text className="text-sm text-muted-foreground">
-                  Your dashboard adapts for the {roleLabel.toLowerCase()} experience.
+                  This overview highlights the key activity for your {roleLabel.toLowerCase()} duties today.
                 </Text>
               </AppCard>
       </Animated.View>

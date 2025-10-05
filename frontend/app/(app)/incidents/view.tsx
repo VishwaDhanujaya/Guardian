@@ -56,19 +56,39 @@ type Section = "pending" | "ongoing" | "solved";
 function getMockReport(id: string): Report {
   return {
     id,
-    title: "Traffic accident · Main St",
+    title: "Traffic hazard at Main & 3rd",
     category: "Safety",
     location: "Main St & 3rd Ave",
-    reportedBy: "Alex Johnson",
-    reportedAt: "Today · 3:10 PM",
+    latitude: -33.8679,
+    longitude: 151.2076,
+    reportedBy: "Maria Lopez",
+    reportedAt: "14:05 today",
     status: "In Review",
     priority: "Urgent",
     description:
-      "Two vehicles collided at the intersection. No visible fire. One lane blocked. Requesting traffic control.",
-    notes: [{ id: "n1", text: "Report received. Reviewing details.", at: "3:12 PM", by: "System" }],
-    witnesses: [],
+      "Two vehicles collided at the Main St & 3rd Ave intersection, leaving oil across the eastbound lane and blocking traffic in peak hour. Units are coordinating a detour while road maintenance attends the spill.",
+    notes: [
+      {
+        id: "n1",
+        text: "Report logged at 14:05 after multiple calls from nearby businesses.",
+        at: "14:07",
+        by: "Control room",
+      },
+      {
+        id: "n2",
+        text: "Unit Bravo-12 on scene establishing a detour and awaiting tow support.",
+        at: "14:16",
+        by: "Officer Reed",
+      },
+    ],
+    witnesses: [
+      { id: "w1", firstName: "Evelyn Grant", lastName: "", dateOfBirth: "", contactNumber: "" },
+      { id: "w2", firstName: "Marcus Reid", lastName: "", dateOfBirth: "", contactNumber: "" },
+    ],
     rawStatus: "PENDING",
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1504215680853-026ed2a45def?auto=format&fit=crop&w=960&q=80",
+    ],
   };
 }
 
@@ -288,11 +308,21 @@ export default function ViewIncident() {
       : "text-foreground";
 
   if (loadError && !report) {
+    const previewNotes = mockReport?.notes?.slice(0, 2) ?? [];
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}>
-        <Text className="text-foreground mb-4">Failed to load report.</Text>
-        <View className="flex-row items-center gap-2">
-          <Button onPress={load} className="h-10 px-3 rounded-lg">
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingVertical: 32,
+          backgroundColor: "#FFFFFF",
+        }}
+      >
+        <Text className="text-foreground mb-4 text-base">Failed to load report.</Text>
+        <View className="flex-row flex-wrap items-center justify-center gap-2">
+          <Button onPress={load} className="h-10 rounded-lg px-3">
             <Text className="text-primary-foreground">Retry</Text>
           </Button>
           {mockReport ? (
@@ -305,16 +335,85 @@ export default function ViewIncident() {
                 setNotes(mockReport.notes);
                 setLoadError(false);
               }}
-              className="h-10 px-3 rounded-lg"
+              className="h-10 rounded-lg px-3"
             >
-              <Text className="text-foreground">Use mock</Text>
+              <Text className="text-foreground">Use demo data</Text>
             </Button>
           ) : null}
-          <Button variant="secondary" onPress={goBack} className="h-10 px-3 rounded-lg">
+          <Button variant="secondary" onPress={goBack} className="h-10 rounded-lg px-3">
             <Text className="text-foreground">Back</Text>
           </Button>
         </View>
-      </View>
+
+        {mockReport ? (
+          <View className="mt-8 w-full max-w-xl">
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Demo preview
+            </Text>
+            <View className="mt-3 rounded-2xl border border-border bg-muted p-4">
+              <Text className="text-base font-medium text-foreground">{mockReport.title}</Text>
+              <View className="mt-2 flex-row flex-wrap items-center gap-2">
+                <View className="flex-row items-center gap-1 rounded-full bg-background px-2 py-1">
+                  <CalendarDays size={12} color="#0F172A" />
+                  <Text className="text-[11px] text-muted-foreground">{mockReport.reportedAt}</Text>
+                </View>
+                <View className="flex-row items-center gap-1 rounded-full bg-background px-2 py-1">
+                  <MapPin size={12} color="#0F172A" />
+                  <Text className="text-[11px] text-muted-foreground">{mockReport.location}</Text>
+                </View>
+              </View>
+
+              <View className="mt-3 flex-row flex-wrap gap-3">
+                <View className="min-w-[140px] flex-1 rounded-xl border border-border bg-background p-3">
+                  <Text className="text-[11px] uppercase text-muted-foreground">Status</Text>
+                  <Text className="mt-1 text-sm font-semibold text-foreground">{mockReport.status}</Text>
+                  <Text className="mt-2 text-[11px] text-muted-foreground">
+                    Priority: {mockReport.priority}
+                  </Text>
+                </View>
+                <View className="min-w-[140px] flex-1 rounded-xl border border-border bg-background p-3">
+                  <Text className="text-[11px] uppercase text-muted-foreground">Reported by</Text>
+                  <Text className="mt-1 text-sm font-semibold text-foreground">{mockReport.reportedBy}</Text>
+                  <Text className="mt-2 text-[11px] text-muted-foreground">Lat {mockReport.latitude?.toFixed(3)}, Lon {mockReport.longitude?.toFixed(3)}</Text>
+                </View>
+              </View>
+
+              <View className="mt-3 rounded-xl border border-border bg-background p-3">
+                <Text className="text-[12px] text-muted-foreground">Summary</Text>
+                <Text className="mt-1 text-sm text-foreground">{mockReport.description}</Text>
+              </View>
+
+              {previewNotes.length > 0 ? (
+                <View className="mt-3 rounded-xl border border-border bg-background p-3">
+                  <Text className="text-[12px] text-muted-foreground">Latest notes</Text>
+                  <View className="mt-2 gap-2">
+                    {previewNotes.map((note) => (
+                      <View key={note.id} className="rounded-lg bg-muted/40 px-3 py-2">
+                        <Text className="text-[12px] font-medium text-foreground">{note.by}</Text>
+                        <Text className="text-[11px] text-muted-foreground">{note.at}</Text>
+                        <Text className="mt-1 text-sm text-foreground">{note.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {mockReport.witnesses?.length ? (
+                <View className="mt-3 rounded-xl border border-dashed border-border bg-background/80 p-3">
+                  <Text className="text-[12px] text-muted-foreground">Witnesses noted</Text>
+                  <View className="mt-2 gap-2">
+                    {mockReport.witnesses.map((w) => (
+                      <Text key={w.id} className="text-sm text-foreground">
+                        • {[w.firstName, w.lastName].filter(Boolean).join(" ") || "Unnamed witness"}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
     );
   }
 
@@ -524,23 +623,38 @@ export default function ViewIncident() {
               <View className="gap-2">
                 {witnesses.map((w) => {
                   const name = [w.firstName, w.lastName].filter(Boolean).join(" ").trim();
+                  const dobValue = typeof w.dateOfBirth === "string" ? w.dateOfBirth.trim() : "";
+                  const contactValue = typeof w.contactNumber === "string" ? w.contactNumber.trim() : "";
+                  const detailChips: ReactNode[] = [];
+
+                  if (dobValue) {
+                    detailChips.push(
+                      <View key={`${w.id}-dob`} className="flex-row items-center gap-1">
+                        <Calendar size={12} color="#0F172A" />
+                        <Text className="text-[11px] text-muted-foreground">{formatDobDisplay(dobValue)}</Text>
+                      </View>,
+                    );
+                  }
+
+                  if (contactValue) {
+                    detailChips.push(
+                      <View key={`${w.id}-contact`} className="flex-row items-center gap-1">
+                        <Phone size={12} color="#0F172A" />
+                        <Text className="text-[11px] text-muted-foreground">{formatPhoneDisplay(contactValue)}</Text>
+                      </View>,
+                    );
+                  }
+
                   return (
                     <View key={w.id} className="bg-background border border-border rounded-xl px-3 py-2">
                       <Text className="text-[13px] text-foreground">{name || "Unnamed witness"}</Text>
-                      <View className="flex-row flex-wrap items-center gap-3 mt-1">
-                        <View className="flex-row items-center gap-1">
-                          <Calendar size={12} color="#0F172A" />
-                          <Text className="text-[11px] text-muted-foreground">
-                            {formatDobDisplay(w.dateOfBirth)}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-1">
-                          <Phone size={12} color="#0F172A" />
-                          <Text className="text-[11px] text-muted-foreground">
-                            {formatPhoneDisplay(w.contactNumber)}
-                          </Text>
-                        </View>
-                      </View>
+                      {detailChips.length > 0 ? (
+                        <View className="mt-1 flex-row flex-wrap items-center gap-3">{detailChips}</View>
+                      ) : (
+                        <Text className="mt-1 text-[11px] text-muted-foreground">
+                          No additional contact details were provided.
+                        </Text>
+                      )}
                     </View>
                   );
                 })}
