@@ -138,7 +138,7 @@ export default function CitizenLostFound() {
               description="Share a few details and we’ll alert nearby stations right away."
             />
             <Text className="text-xs text-muted-foreground">
-              Tell us what went missing and where you last saw it. You can update the details later if something changes.
+              Tell us what went missing and where you last saw it. Include any details that will help our team follow up quickly.
             </Text>
             <Button
               className="h-12 rounded-full"
