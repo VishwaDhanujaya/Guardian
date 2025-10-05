@@ -1,7 +1,7 @@
 // app/(app)/incidents/my-reports.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
@@ -16,7 +16,9 @@ import {
   type ReportSummary,
 } from "@/lib/api";
 
-import { ChevronRight, ClipboardList, Inbox } from "lucide-react-native";
+import { AuthContext } from "@/context/AuthContext";
+
+import { ChevronRight, ClipboardList, Inbox, PackageSearch, ShieldPlus } from "lucide-react-native";
 
 /** Types */
 type Priority = "Urgent" | "Normal" | "Low";
@@ -31,6 +33,7 @@ type Row = {
   priority?: Priority | null;
   kind: "incident" | "lost";
   meta?: string;
+  category?: string | null;
 };
 
 const statusTone = (s: string) =>
@@ -45,6 +48,7 @@ const statusTone = (s: string) =>
 /** Screen */
 export default function MyReports() {
   const navigation = useNavigation<any>();
+  const { profile, profileLoading } = useContext(AuthContext);
   const goBack = useCallback(() => {
     if (navigation?.canGoBack?.()) navigation.goBack();
     else router.replace({ pathname: "/home", params: { role: "citizen" } });
@@ -81,6 +85,8 @@ export default function MyReports() {
   }, [loadReports]);
 
   const all = useMemo<Row[]>(() => {
+    const userId = profile?.id ?? null;
+    const userLabel = userId ? `Citizen #${userId}` : null;
     const incidentRows = reports.map(
       (report): Row => ({
         id: `incident-${report.id}`,
@@ -90,9 +96,17 @@ export default function MyReports() {
         priority: report.suggestedPriority,
         reportedAgo: report.reportedAgo,
         kind: "incident",
+        category: report.category ?? null,
       }),
     );
-    const lostRows = lostItems.map((item): Row => {
+    const lostRows = lostItems
+      .filter((item) => {
+        if (!userId) return false;
+        if (item.reportedById) return item.reportedById === userId;
+        if (userLabel) return item.reportedBy === userLabel;
+        return false;
+      })
+      .map((item): Row => {
       const subtitleParts = [item.branch, item.lastLocation].filter(
         (part): part is string => Boolean(part && part.trim()),
       );
@@ -108,7 +122,7 @@ export default function MyReports() {
       };
     });
     return [...incidentRows, ...lostRows];
-  }, [reports, lostItems]);
+  }, [reports, lostItems, profile?.id]);
 
   const [categoryFilter, setCategoryFilter] = useState<KindFilter>("All");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Ongoing" | "Resolved">("All");
@@ -136,6 +150,8 @@ export default function MyReports() {
       return row.status === "Resolved" || row.status === "Returned";
     });
   }, [all, categoryFilter, statusFilter]);
+
+  const showInitialLoading = (loading && all.length === 0) || (profileLoading && all.length === 0);
 
   const priorityTone: Record<Priority, "danger" | "accent" | "primary"> = {
     Urgent: "danger",
@@ -217,7 +233,7 @@ export default function MyReports() {
         </View>
 
         <View className="gap-3">
-          {loading && all.length === 0 ? (
+          {showInitialLoading ? (
             <View className="items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 p-6">
               <ActivityIndicator size="small" color="#0F172A" />
               <Text className="text-sm font-semibold text-foreground">Loading reports…</Text>
@@ -269,6 +285,9 @@ export default function MyReports() {
                     </Text>
                     <View className="mt-1 flex-row flex-wrap items-center gap-2">
                       <Text className={`text-xs font-medium ${statusTone(r.status)}`}>{r.status}</Text>
+                      {r.category ? (
+                        <Text className="text-xs text-muted-foreground">• {r.category}</Text>
+                      ) : null}
                       <Text className="text-xs text-muted-foreground">• {r.reportedAgo}</Text>
                     </View>
                     {r.meta ? (
@@ -296,17 +315,41 @@ export default function MyReports() {
         </View>
       </AppCard>
 
-      <AppCard translucent className="items-center gap-3">
-        <Text className="text-sm font-medium text-foreground">Need to report something new?</Text>
-        <Text className="text-center text-xs text-muted-foreground">
-          Start a fresh report whenever you notice an issue in your neighborhood.
+      <AppCard translucent className="gap-4">
+        <Text className="text-sm font-semibold text-foreground">File a new report</Text>
+        <Text className="text-xs text-muted-foreground">
+          Choose the option that matches what you need help with right now.
         </Text>
-        <Button
-          onPress={() => router.push({ pathname: "/incidents", params: { role: "citizen" } })}
-          className="h-12 rounded-2xl px-5"
-        >
-          <Text className="text-primary-foreground">Report a New Incident</Text>
-        </Button>
+        <View className="flex-row flex-wrap gap-3">
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: "/incidents/report-incidents", params: { role: "citizen" } })
+            }
+            className="flex-1 min-w-[150px] rounded-2xl border border-border bg-background/90 p-4"
+            android_ripple={{ color: "rgba(15,23,42,0.06)", borderless: false }}
+          >
+            <View className="mb-3 h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <ShieldPlus size={18} color="#4338CA" />
+            </View>
+            <Text className="text-sm font-semibold text-foreground">Report an incident</Text>
+            <Text className="mt-1 text-[11px] text-muted-foreground">
+              Share what happened so responders can follow up quickly.
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: "/lost-found/citizen", params: { role: "citizen" } })}
+            className="flex-1 min-w-[150px] rounded-2xl border border-border bg-background/90 p-4"
+            android_ripple={{ color: "rgba(15,23,42,0.06)", borderless: false }}
+          >
+            <View className="mb-3 h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+              <PackageSearch size={18} color="#0F172A" />
+            </View>
+            <Text className="text-sm font-semibold text-foreground">Report a lost item</Text>
+            <Text className="mt-1 text-[11px] text-muted-foreground">
+              Tell us what went missing and we’ll link you to the lost &amp; found desk.
+            </Text>
+          </Pressable>
+        </View>
       </AppCard>
     </AppScreen>
   );

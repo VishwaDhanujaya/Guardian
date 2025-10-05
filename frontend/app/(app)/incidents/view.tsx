@@ -43,7 +43,9 @@ import {
   PackageSearch,
   Phone,
   ShieldAlert,
+  ShieldOff,
   Users,
+  Car,
 } from "lucide-react-native";
 
 type Role = "citizen" | "officer";
@@ -324,12 +326,26 @@ export default function ViewIncident() {
     );
   }
 
-  const catIcon = {
-    Safety: ShieldAlert,
-    Crime: AlertTriangle,
-    Maintenance: PackageSearch,
-    Other: Info,
-  }[report.category];
+  const categoryLabel = report.category?.trim?.() ? report.category : "Incident";
+  const categoryKey = categoryLabel.toLowerCase();
+  const catIcon = (() => {
+    if (categoryKey.includes("theft") || categoryKey.includes("steal")) {
+      return ShieldOff;
+    }
+    if (categoryKey.includes("hazard") || categoryKey.includes("danger")) {
+      return AlertTriangle;
+    }
+    if (categoryKey.includes("accident") || categoryKey.includes("crash") || categoryKey.includes("collision")) {
+      return Car;
+    }
+    if (categoryKey.includes("maint") || categoryKey.includes("repair")) {
+      return PackageSearch;
+    }
+    if (categoryKey.includes("crime")) {
+      return AlertTriangle;
+    }
+    return ShieldAlert;
+  })();
 
   const PillIcon = prioPill(priority).Icon;
 
@@ -406,7 +422,7 @@ export default function ViewIncident() {
             <View className="flex-row flex-wrap items-center gap-2">
               <View className="flex-row items-center gap-1 bg-background border border-border rounded-lg px-2 py-1">
                 {catIcon ? createElement(catIcon, { size: 14, color: "#0F172A" }) : <Info size={14} color="#0F172A" />}
-                <Text className="text-[12px] text-foreground">{report.category}</Text>
+                <Text className="text-[12px] text-foreground">{categoryLabel}</Text>
               </View>
               <View className="flex-row items-center gap-1 bg-background border border-border rounded-lg px-2 py-1">
                 <MapPin size={14} color="#0F172A" />

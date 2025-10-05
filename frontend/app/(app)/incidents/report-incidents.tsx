@@ -267,7 +267,7 @@ export default function ReportIncidents() {
       });
 
       const detailSegments = [desc.trim()];
-      if (category) detailSegments.unshift(`[${category}]`);
+      if (category) detailSegments.push(`Category: ${category}`);
       if (location) {
         const label = location.label ?? formatCoordinates(location.latitude, location.longitude);
         detailSegments.push(`Location: ${label}`);
@@ -433,24 +433,6 @@ export default function ReportIncidents() {
                     multiline
                     maxLength={DESC_MAX}
                   />
-                </View>
-                <View className="flex-row items-center justify-between px-1 pt-2">
-                  <Text className="text-[11px] text-muted-foreground">
-                    Share the sequence of events, descriptions, and anything that stands out.
-                  </Text>
-                  <View
-                    className={`rounded-full px-2 py-0.5 ${
-                      nearingLimit ? "bg-destructive/10" : "bg-muted/60"
-                    }`}
-                  >
-                    <Text
-                      className={`text-[11px] font-semibold ${
-                        nearingLimit ? "text-destructive" : "text-muted-foreground"
-                      }`}
-                    >
-                      {desc.length}/{DESC_MAX}
-                    </Text>
-                  </View>
                 </View>
               </View>
 

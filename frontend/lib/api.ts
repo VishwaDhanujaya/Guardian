@@ -298,12 +298,13 @@ export type ReportSummary = {
   reportedAgo: string;
   suggestedPriority: ReportPriority;
   rawStatus: BackendReportStatus;
+  category?: string | null;
 };
 
 export type Report = {
   id: string;
   title: string;
-  category: "Safety" | "Crime" | "Maintenance" | "Other";
+  category: string;
   location: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -317,6 +318,73 @@ export type Report = {
   witnesses: ReportWitness[];
   rawStatus: BackendReportStatus;
 };
+
+function normaliseReportCategory(label: string | null | undefined): string | null {
+  if (typeof label !== "string") return null;
+  const cleaned = label.replace(/[\[\]]/g, "").replace(/\s+/g, " ").trim();
+  if (!cleaned || cleaned.length > 60) return null;
+  const isAllUpper = cleaned === cleaned.toUpperCase();
+  const isAllLower = cleaned === cleaned.toLowerCase();
+  if (isAllUpper || isAllLower) {
+    return cleaned
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return cleaned;
+}
+
+function parseReportDescription(raw: any): {
+  category: string | null;
+  segments: string[];
+} {
+  if (typeof raw !== "string") {
+    return { category: null, segments: [] };
+  }
+
+  const parts = raw
+    .split(/\n{2,}/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  let category: string | null = null;
+  const segments: string[] = [];
+
+  parts.forEach((segment) => {
+    if (!category) {
+      const bracketMatch = segment.match(/^\[(.+)\]$/);
+      if (bracketMatch) {
+        const label = normaliseReportCategory(bracketMatch[1]);
+        if (label) {
+          category = label;
+          return;
+        }
+      }
+      const explicitMatch = segment.match(/^Category:\s*(.+)$/i);
+      if (explicitMatch) {
+        const label = normaliseReportCategory(explicitMatch[1]);
+        if (label) {
+          category = label;
+          return;
+        }
+      }
+    }
+    segments.push(segment);
+  });
+
+  return { category, segments };
+}
+
+function summariseReport(description: any): {
+  category: string | null;
+  body: string;
+  summary: string;
+} {
+  const parsed = parseReportDescription(description);
+  const body = parsed.segments.join("\n\n");
+  const summary = parsed.segments.length > 0 ? parsed.segments[0] : "";
+  return { category: parsed.category, body, summary };
+}
 
 export type CreateReportPayload = {
   description: string;
@@ -392,15 +460,19 @@ export async function createReport(
 
   const id = toStringId(data?.id);
   const status = mapReportStatus(data?.status);
+  const parsed = summariseReport(data?.description ?? payload.description);
+  const titleSource = parsed.summary?.trim?.() ?? "";
+  const title = titleSource.length > 0 ? titleSource.slice(0, 80) : `Report #${id}`;
 
   return {
     id,
-    title: data?.description ? data.description.slice(0, 80) : `Report #${id}`,
+    title,
     citizen: data?.user_id ? `Citizen #${data.user_id}` : "Unknown",
     status,
     reportedAgo: formatRelative(data?.createdAt ?? data?.created_at ?? null),
     suggestedPriority: mapPriority(data?.priority),
     rawStatus: (data?.status as BackendReportStatus) ?? "PENDING",
+    category: parsed.category,
   };
 }
 
@@ -430,14 +502,18 @@ export async function fetchReports(): Promise<ReportSummary[]> {
   return list.map((report: any) => {
     const id = toStringId(report.id);
     const status = mapReportStatus(report.status);
+    const parsed = summariseReport(report.description);
+    const summary = parsed.summary?.trim?.() ?? "";
+    const titleBase = summary.length > 0 ? summary : parsed.category ?? `Report #${id}`;
     return {
       id,
-      title: report.description ? report.description.slice(0, 80) : `Report #${id}`,
+      title: titleBase.slice(0, 80),
       citizen: report.user_id ? `Citizen #${report.user_id}` : "Unknown",
       status,
       reportedAgo: formatRelative(report.createdAt ?? report.created_at ?? null),
       suggestedPriority: mapPriority(report.priority),
       rawStatus: (report.status as BackendReportStatus) ?? "PENDING",
+      category: parsed.category,
     };
   });
 }
@@ -462,6 +538,9 @@ export async function getIncident(id: string): Promise<Report> {
   ]);
 
   const title = report.description ? report.description.slice(0, 80) : `Report #${id}`;
+  const parsed = summariseReport(report.description);
+  const titleSource = parsed.summary?.trim?.() ?? "";
+  const finalTitle = titleSource.length > 0 ? titleSource.slice(0, 80) : title;
   const images = Array.isArray(report.images)
     ? (report.images as unknown[])
         .map((token) => toSignedFileUrl(token))
@@ -478,8 +557,8 @@ export async function getIncident(id: string): Promise<Report> {
   })();
   return {
     id: toStringId(report.id),
-    title,
-    category: "Safety",
+    title: finalTitle,
+    category: parsed.category ?? "Incident",
     location: locationText,
     latitude,
     longitude,
@@ -487,7 +566,7 @@ export async function getIncident(id: string): Promise<Report> {
     reportedAt: formatRelative(report.createdAt ?? report.created_at ?? null),
     status: mapReportStatus(report.status),
     priority: mapPriority(report.priority),
-    description: report.description ?? "",
+    description: parsed.body || report.description || "",
     notes: Array.isArray(notes) ? notes.map(mapNote) : [],
     images,
     witnesses: Array.isArray(report.witnesses)
@@ -591,6 +670,7 @@ export type FoundItemDetail = {
 
 export type LostItemDetail = FoundItemDetail & {
   reportedBy?: string;
+  reportedById?: string | null;
 };
 
 export type LostItemPayload = {
@@ -647,6 +727,7 @@ function mapLostItemDetail(item: any): LostItemDetail {
   return {
     ...mapLostItem(item),
     reportedBy: item?.user_id ? `Citizen #${item.user_id}` : undefined,
+    reportedById: item?.user_id != null ? toStringId(item.user_id) : undefined,
   };
 }
 
