@@ -280,10 +280,12 @@ export default function Home() {
   // Chatbot (citizen only)
   const [chatOpen, setChatOpen] = useState(false);
   const kommunicateAppId = useMemo(() => {
-    const value = process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID;
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+    const candidates = [
+      process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID,
+      process.env.EXPO_PUBLIC_COMMUNICATE_APP_ID,
+    ];
+    const match = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+    return match?.trim();
   }, []);
   const kommunicateUser = useMemo(() => {
     if (!profile) return undefined;
@@ -1125,7 +1127,7 @@ const ChatbotWidget: FC<{
         <View className="gap-3 rounded-3xl bg-muted p-5">
           <Text className="text-base font-semibold text-foreground">Chat unavailable</Text>
           <Text className="text-sm leading-relaxed text-muted-foreground">
-            Add EXPO_PUBLIC_KOMMUNICATE_APP_ID to your Expo scripts to enable the Guardian assistant.
+            Add EXPO_PUBLIC_KOMMUNICATE_APP_ID (or EXPO_PUBLIC_COMMUNICATE_APP_ID) to your Expo scripts to enable the Guardian assistant.
           </Text>
         </View>
       </AppCard>
