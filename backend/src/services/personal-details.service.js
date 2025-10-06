@@ -1,5 +1,6 @@
 const z = require("zod");
 const PersonalDetailsModel = require("../models/personal-details.model");
+const HttpError = require("../utils/http-error");
 
 class PersonalDetailsService {
   PersonalDetailsValidation = z.object({
