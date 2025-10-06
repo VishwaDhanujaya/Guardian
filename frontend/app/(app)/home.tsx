@@ -283,6 +283,7 @@ export default function Home() {
     const candidates = [
       process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID,
       process.env.EXPO_PUBLIC_COMMUNICATE_APP_ID,
+      '1bc1af724f54a2ea777cb03d818d6a3a0',
     ];
     const match = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
     return match?.trim();
@@ -1062,7 +1063,7 @@ const ChatbotWidget: FC<{
     if (!appId) return null;
     const settings: Record<string, unknown> = {
       appId,
-      popupWidget: true,
+      popupWidget: false,
       automaticChatOpenOnNavigation: true,
     };
     if (user?.id) settings.userId = user.id;
@@ -1072,14 +1073,43 @@ const ChatbotWidget: FC<{
   }, [appId, user?.email, user?.id, user?.name]);
   const kommunicateHtml = useMemo(() => {
     if (!kommunicateSettings) return null;
-    return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body style="margin:0;padding:0;">
+    const settingsJson = JSON.stringify({
+      ...kommunicateSettings,
+      widgetContainer: 'kommunicate-widget-container',
+    });
+    return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: transparent; }
+        #kommunicate-widget-container { height: 100%; }
+      </style>
+    </head><body>
+      <div id="kommunicate-widget-container"></div>
       <script>
         (function(d, m){
-          var kommunicateSettings = ${JSON.stringify(kommunicateSettings)};
+          var kommunicateSettings = ${settingsJson};
           var s = document.createElement("script"); s.type = "text/javascript"; s.async = true;
           s.src = "https://widget.kommunicate.io/v2/kommunicate.app";
+          s.onload = function(){
+            var api = window.kommunicate || window.Kommunicate;
+            if (api && typeof api.display === "function") {
+              api.display();
+            }
+            if (api && typeof api.launchConversation === "function") {
+              api.launchConversation();
+            }
+          };
           var h = document.getElementsByTagName("head")[0]; h.appendChild(s);
           window.kommunicate = m; m._globals = kommunicateSettings;
+          function ensureConversation(){
+            var api = window.kommunicate || window.Kommunicate;
+            if (api && typeof api.launchConversation === "function") {
+              api.display && api.display();
+              api.launchConversation();
+            } else {
+              setTimeout(ensureConversation, 400);
+            }
+          }
+          ensureConversation();
         })(document, window.kommunicate || {});
       </script>
     </body></html>`;
