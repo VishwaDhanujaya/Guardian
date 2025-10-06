@@ -1,4 +1,3 @@
-// app/(app)/incidents/manage-incidents.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
@@ -83,6 +82,11 @@ function isTabKey(v: any): v is TabKey {
   return v === "pending" || v === "ongoing" || v === "solved";
 }
 
+/**
+ * Officer incidents management screen used to triage and update citizen reports.
+ *
+ * @returns The officer incidents management UI.
+ */
 export default function ManageIncidents() {
   const { role, tab: tabParam } = useLocalSearchParams<{ role?: string; tab?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";

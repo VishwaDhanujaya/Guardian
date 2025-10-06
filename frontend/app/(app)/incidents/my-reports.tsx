@@ -1,4 +1,3 @@
-// app/(app)/incidents/my-reports.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -45,7 +44,11 @@ const statusTone = (s: string) =>
     ? "text-primary"
     : "text-foreground";
 
-/** Screen */
+/**
+ * Citizen dashboard for viewing previously submitted incident and lost item reports.
+ *
+ * @returns The citizen reports UI.
+ */
 export default function MyReports() {
   const navigation = useNavigation<any>();
   const { profile, profileLoading } = useContext(AuthContext);

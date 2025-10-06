@@ -1,4 +1,3 @@
-// app/(app)/alerts/edit.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +15,12 @@ import { ChevronLeft, Megaphone, Pencil, Save } from "lucide-react-native";
 
 type Role = "citizen" | "officer";
 
-
+/**
+ * Alert editor for creating or updating safety alerts.
+ * Restricts access to officers and pre-fills when editing an existing alert.
+ *
+ * @returns The alert edit form UI.
+ */
 export default function EditAlert() {
   const { role, id } = useLocalSearchParams<{ role?: string; id?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
@@ -27,7 +31,6 @@ export default function EditAlert() {
     else router.replace({ pathname: "/alerts/manage", params: { role: resolvedRole } });
   }, [navigation, resolvedRole]);
 
-  // Entrance animation
   const { value: mount } = useMountAnimation({
     damping: 14,
     stiffness: 160,

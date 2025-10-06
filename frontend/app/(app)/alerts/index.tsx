@@ -1,18 +1,17 @@
-// app/(app)/alerts/index.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 
 /**
- * Alerts index:
- * Redirects to the appropriate alerts route based on `role` (officer | citizen).
- * Defaults to citizen alerts if role is missing/invalid.
+ * Alerts index screen that redirects to the role-appropriate alerts route.
+ * Defaults to the citizen view when the role is missing or invalid.
+ *
+ * @returns Nothing; navigation happens immediately.
  */
 export default function AlertsIndex() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const normalizedRole = useMemo<Role>(() => normalizeRole(role), [role]);
   const pathname = useMemo<AlertsPath>(() => getAlertsPath(normalizedRole), [normalizedRole]);
 
-  // Prevent double replace on React strict-mode / re-mounts
   const redirectedRef = useRef(false);
 
   useEffect(() => {
@@ -22,11 +21,8 @@ export default function AlertsIndex() {
     router.replace({ pathname, params: { role: normalizedRole } });
   }, [pathname, normalizedRole]);
 
-  // No UI; just redirect.
   return null;
 }
-
-// Types and helpers
 
 type Role = "officer" | "citizen";
 

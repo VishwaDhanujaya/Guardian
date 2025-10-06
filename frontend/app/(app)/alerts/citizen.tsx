@@ -1,4 +1,3 @@
-// app/(app)/alerts/citizen.tsx
 import { useNavigation } from "@react-navigation/native";
 import { AppCard, AppScreen, Pill, ScreenHeader, SectionHeader } from "@/components/app/shell";
 import { router, useLocalSearchParams } from "expo-router";
@@ -45,13 +44,18 @@ function formatAlertType(type?: string): string {
     .join(" ");
 }
 
+/**
+ * Citizen-facing alerts screen showing recently published notices.
+ * Supports officer view-only access when navigated directly.
+ *
+ * @returns The citizen alerts UI.
+ */
 export default function CitizenAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";
   const roleLabel = resolvedRole === "officer" ? "Officer" : "Citizen";
   const layout = useResponsiveLayout();
 
-  // Entrance animation
   const { value: mount } = useMountAnimation({
     damping: 14,
     stiffness: 160,

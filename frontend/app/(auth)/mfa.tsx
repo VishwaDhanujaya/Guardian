@@ -1,4 +1,3 @@
-// app/(auth)/mfa.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,10 +23,10 @@ import { apiService } from "@/services/apiService";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
 /**
- * MFA verification screen.
- * - Accepts a 6-digit OTP and verifies user session.
- * - Mirrors the motion/visual language used in Login/Register.
- * - Supports officer vs. citizen copy via `role` query param.
+ * MFA verification screen that validates a one-time code before unlocking the app.
+ * Mirrors the login visuals and supports citizen/officer specific messaging.
+ *
+ * @returns The multi-factor verification UI.
  */
 interface VerifyResponse {
   status: string;

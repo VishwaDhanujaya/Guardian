@@ -1,11 +1,11 @@
-// app/(app)/incidents/index.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 
 /**
- * Incidents index:
- * Redirects to the appropriate incidents route based on `role` (officer | citizen).
- * Falls back to citizen if role is missing/invalid. Runs once, avoids double-redirects.
+ * Incidents index screen that redirects to the correct incidents route for the role.
+ * Falls back to the citizen flow when the role is missing or invalid.
+ *
+ * @returns Nothing; navigation happens immediately.
  */
 export default function IncidentsIndex() {
   const { role } = useLocalSearchParams<{ role?: string }>();
@@ -13,7 +13,6 @@ export default function IncidentsIndex() {
   const normalizedRole = useMemo<"officer" | "citizen">(() => normalizeRole(role), [role]);
   const pathname = useMemo<IncidentsPath>(() => getIncidentsPath(normalizedRole), [normalizedRole]);
 
-  // Prevent double replace on React strict-mode / re-mounts
   const redirectedRef = useRef(false);
 
   useEffect(() => {
@@ -28,7 +27,6 @@ export default function IncidentsIndex() {
     router.replace(href);
   }, [pathname, normalizedRole]);
 
-  // No UI; just redirect.
   return null;
 }
 

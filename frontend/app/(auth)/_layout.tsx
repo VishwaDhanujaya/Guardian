@@ -1,10 +1,10 @@
-// app/(auth)/_layout.tsx
 import { Stack } from "expo-router";
 
 /**
- * Auth group layout.
- * - Hosts authentication screens with no headers for a clean look.
- * - Keep options minimal; global providers live in the root layout.
+ * Authentication layout that hides default headers for login-related screens.
+ * Keeps configuration minimal because providers live in the root layout.
+ *
+ * @returns The stack configuration for auth routes.
  */
 export default function AuthLayout() {
   return (

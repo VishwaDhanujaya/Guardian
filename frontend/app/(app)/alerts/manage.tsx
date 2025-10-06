@@ -1,4 +1,3 @@
-// app/(app)/alerts/manage.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -18,6 +17,12 @@ import { MapPin, Megaphone, Pencil, Plus, Trash2 } from "lucide-react-native";
 
 type Role = "citizen" | "officer";
 
+/**
+ * Officer-facing alerts management screen that lists, edits, and deletes alerts.
+ * Citizens can view the feed in read-only mode when navigated here.
+ *
+ * @returns The alerts management UI.
+ */
 export default function ManageAlerts() {
   const { role } = useLocalSearchParams<{ role?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";

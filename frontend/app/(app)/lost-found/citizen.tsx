@@ -16,6 +16,11 @@ import { fetchFoundItems, FoundItem, reportLostItem } from "@/lib/api";
 import { useNavigation } from "@react-navigation/native";
 import { PackageSearch, Plus, Search as SearchIcon, X } from "lucide-react-native";
 
+/**
+ * Citizen lost-and-found screen that lists officer submissions and accepts lost item reports.
+ *
+ * @returns The citizen lost-and-found UI.
+ */
 export default function CitizenLostFound() {
   const navigation = useNavigation<any>();
   const goBack = () => {
@@ -49,7 +54,6 @@ export default function CitizenLostFound() {
     return title.includes(needle) || meta.includes(needle);
   });
 
-  // lost form state
   const [itemName, setItemName] = useState("");
   const [desc, setDesc] = useState("");
   const [model, setModel] = useState("");

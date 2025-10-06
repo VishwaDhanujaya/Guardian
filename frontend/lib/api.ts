@@ -81,6 +81,12 @@ function formatRelative(date: string | null | undefined): string {
   return parsed.toLocaleDateString();
 }
 
+/**
+ * Formats a timestamp into a relative "x minutes ago" style string.
+ *
+ * @param date - ISO string or null/undefined when unknown.
+ * @returns Human-friendly relative time text.
+ */
 export function formatRelativeTime(
   date: string | null | undefined,
 ): string {
@@ -160,6 +166,12 @@ function toNumberOrNull(value: unknown): number | null {
   return null;
 }
 
+/**
+ * Retrieves a Mapbox access token for map interactions.
+ *
+ * @returns A usable Mapbox token string.
+ * @throws When the API does not return a token.
+ */
 export async function fetchMapboxToken(): Promise<string> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>("/api/v1/map-box/token"),
@@ -198,6 +210,11 @@ export type Profile = {
   isOfficer: boolean;
 };
 
+/**
+ * Fetches the authenticated user's profile information.
+ *
+ * @returns Normalised profile data.
+ */
 export async function fetchProfile(): Promise<Profile> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>("/api/v1/auth/profile"),
@@ -236,6 +253,11 @@ export type AlertRow = {
   createdAt?: string | null;
 };
 
+/**
+ * Retrieves all safety alerts visible to the current user.
+ *
+ * @returns A list of alerts sorted as returned by the API.
+ */
 export async function fetchAlerts(): Promise<AlertRow[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/alerts"),
@@ -249,6 +271,12 @@ export async function fetchAlerts(): Promise<AlertRow[]> {
   }));
 }
 
+/**
+ * Loads a single alert by identifier.
+ *
+ * @param id - Alert identifier string.
+ * @returns The requested alert row.
+ */
 export async function getAlert(id: string): Promise<AlertRow> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/alerts/${id}`),
@@ -262,6 +290,12 @@ export async function getAlert(id: string): Promise<AlertRow> {
   };
 }
 
+/**
+ * Creates or updates an alert depending on whether an id is provided.
+ *
+ * @param data - Alert payload.
+ * @returns The saved alert row.
+ */
 export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
   const payload = {
     title: data.title,
@@ -281,6 +315,11 @@ export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
   };
 }
 
+/**
+ * Removes an alert permanently.
+ *
+ * @param id - Alert identifier.
+ */
 export async function deleteAlert(id: string): Promise<void> {
   await apiService.delete(`/api/v1/alerts/${id}`);
 }
@@ -425,6 +464,12 @@ function mapReportWitness(data: any): ReportWitness {
   };
 }
 
+/**
+ * Submits a new incident report with optional attachments.
+ *
+ * @param payload - Incident report data to send.
+ * @returns The created report summary.
+ */
 export async function createReport(
   payload: CreateReportPayload,
 ): Promise<ReportSummary> {
@@ -478,6 +523,12 @@ export async function createReport(
   };
 }
 
+/**
+ * Adds a witness record to an existing incident report.
+ *
+ * @param reportId - Identifier of the report receiving the witness.
+ * @param witness - Witness payload to submit.
+ */
 export async function createReportWitness(
   reportId: string,
   payload: ReportWitnessPayload,
@@ -496,6 +547,11 @@ export async function createReportWitness(
   return mapReportWitness(data);
 }
 
+/**
+ * Retrieves incident report summaries for the current user or officer.
+ *
+ * @returns A list of normalised report summaries.
+ */
 export async function fetchReports(): Promise<ReportSummary[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/reports"),
@@ -521,6 +577,12 @@ export async function fetchReports(): Promise<ReportSummary[]> {
   });
 }
 
+/**
+ * Loads notes attached to a specific incident report.
+ *
+ * @param id - Report identifier.
+ * @returns A list of notes.
+ */
 export async function fetchReportNotes(id: string): Promise<Note[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
@@ -530,6 +592,12 @@ export async function fetchReportNotes(id: string): Promise<Note[]> {
   return (Array.isArray(data) ? data : []).map(mapNote);
 }
 
+/**
+ * Retrieves full incident details for a given identifier.
+ *
+ * @param id - Report identifier.
+ * @returns Detailed report information.
+ */
 export async function getIncident(id: string): Promise<Report> {
   const [report, notes] = await Promise.all([
     unwrap<any>(apiService.get<ApiEnvelope<any>>(`/api/v1/reports/${id}`)),
@@ -579,6 +647,12 @@ export async function getIncident(id: string): Promise<Report> {
   };
 }
 
+/**
+ * Updates the backend status of an incident report.
+ *
+ * @param id - Report identifier.
+ * @param status - Frontend status to map to backend values.
+ */
 export async function updateReportStatus(
   id: string,
   status: FrontendReportStatus,
@@ -590,6 +664,12 @@ export async function updateReportStatus(
   );
 }
 
+/**
+ * Creates a note on an incident report.
+ *
+ * @param id - Report identifier.
+ * @param content - Note body text.
+ */
 export async function addReportNote(
   reportId: string,
   subject: string,
@@ -688,6 +768,11 @@ export type LostItemPayload = {
   status?: "PENDING" | "INVESTIGATING" | "FOUND" | "CLOSED";
 };
 
+/**
+ * Retrieves found items published by officers.
+ *
+ * @returns Normalised found item list.
+ */
 export async function fetchFoundItems(): Promise<FoundItem[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
@@ -734,6 +819,12 @@ function mapLostItemDetail(item: any): LostItemDetail {
   };
 }
 
+/**
+ * Loads details for a found item by id.
+ *
+ * @param id - Found item identifier.
+ * @returns Detailed found item data.
+ */
 export async function getFoundItem(id: string): Promise<FoundItemDetail> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
@@ -741,6 +832,12 @@ export async function getFoundItem(id: string): Promise<FoundItemDetail> {
   return mapLostItem(data);
 }
 
+/**
+ * Loads details for a lost item report by id.
+ *
+ * @param id - Lost item identifier.
+ * @returns Detailed lost item data.
+ */
 export async function getLostItem(id: string): Promise<LostItemDetail> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
@@ -748,6 +845,11 @@ export async function getLostItem(id: string): Promise<LostItemDetail> {
   return mapLostItemDetail(data);
 }
 
+/**
+ * Submits a new lost item report from a citizen.
+ *
+ * @param payload - Lost item details to send.
+ */
 export async function reportLostItem(payload: LostItemPayload): Promise<void> {
   const form = new FormData();
   form.append("name", payload.itemName);
@@ -767,6 +869,11 @@ export async function reportLostItem(payload: LostItemPayload): Promise<void> {
   );
 }
 
+/**
+ * Retrieves lost item reports for officer review.
+ *
+ * @returns Normalised lost item list.
+ */
 export async function fetchLostItems(): Promise<LostItemDetail[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
@@ -801,6 +908,12 @@ function toLostItemUpdateBody(payload: Partial<LostItemUpdatePayload>) {
   return body;
 }
 
+/**
+ * Updates a lost item record with new field values.
+ *
+ * @param id - Lost item identifier.
+ * @param payload - Update payload.
+ */
 export async function updateLostItem(
   id: string,
   payload: Partial<LostItemUpdatePayload>,
@@ -812,6 +925,12 @@ export async function updateLostItem(
   return mapLostItemDetail(data);
 }
 
+/**
+ * Changes the status of a lost item report.
+ *
+ * @param id - Lost item identifier.
+ * @param status - New frontend status to map.
+ */
 export async function updateLostItemStatus(
   id: string,
   status: LostFrontendStatus,
@@ -824,6 +943,12 @@ export async function updateLostItemStatus(
   return mapLostItemDetail(data);
 }
 
+/**
+ * Retrieves notes associated with a lost item report.
+ *
+ * @param id - Lost item identifier.
+ * @returns List of notes for the item.
+ */
 export async function fetchLostItemNotes(id: string): Promise<ItemNote[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
@@ -833,6 +958,12 @@ export async function fetchLostItemNotes(id: string): Promise<ItemNote[]> {
   return (Array.isArray(data) ? data : []).map(mapNote);
 }
 
+/**
+ * Adds a note to a lost item report.
+ *
+ * @param id - Lost item identifier.
+ * @param content - Note text to save.
+ */
 export async function addLostItemNote(
   id: string,
   subject: string,
@@ -861,6 +992,11 @@ export type FoundItemPostPayload = {
   status?: LostFrontendStatus;
 };
 
+/**
+ * Creates a new found item entry on behalf of officers.
+ *
+ * @param payload - Found item details.
+ */
 export async function createFoundItem(
   payload: FoundItemPostPayload,
 ): Promise<LostItemDetail> {

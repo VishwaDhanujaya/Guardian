@@ -1,9 +1,9 @@
-// app/(app)/alerts/_layout.tsx
 import { Stack } from "expo-router";
 
 /**
- * Alerts group layout.
- * Organizes alert-related screens under a hidden-header stack.
+ * Alerts stack layout that hides headers while grouping alert workflows.
+ *
+ * @returns The stack configuration for alert routes.
  */
 export default function AlertsLayout() {
   return (

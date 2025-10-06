@@ -1,4 +1,3 @@
-// app/(auth)/register.tsx
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, Keyboard, View } from "react-native";
@@ -16,10 +15,10 @@ import { apiService } from "@/services/apiService";
 import useMountAnimation from "@/hooks/useMountAnimation";
 
 /**
- * Citizen account registration screen.
- * - Collects first/last name, username, email, and password.
- * - Basic client-side validation (length, match).
- * - Navigates to Login after successful submission (stub).
+ * Citizen account registration screen that posts the form to the backend API.
+ * Performs light validation and redirects to login after a successful signup.
+ *
+ * @returns The registration form UI.
  */
 export default function Register() {
   const [firstName, setFirstName] = useState("");
@@ -31,7 +30,6 @@ export default function Register() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Focus chain
   const lastNameRef = useRef<any>(null);
   const usernameRef = useRef<any>(null);
   const emailRef = useRef<any>(null);
@@ -47,7 +45,7 @@ export default function Register() {
     confirm === password;
 
   /**
-   * Submit registration via backend.
+   * Submit the registration payload to the backend and handle success or failure.
    */
   const onSignUp = async (): Promise<void> => {
     if (!canSubmit || loading) return;
@@ -70,7 +68,6 @@ export default function Register() {
     }
   };
 
-  // Entrance motion for form
   const { value: formAnim } = useMountAnimation({
     damping: 14,
     stiffness: 160,
@@ -81,7 +78,7 @@ export default function Register() {
   const formTranslateY = formAnim.interpolate({ inputRange: [0.9, 1], outputRange: [6, 0] });
 
   /**
-   * Normalize input (trim + collapse whitespace).
+   * Normalise input before submission to trim and collapse whitespace.
    */
   const sanitize = (v: string): string => v.trim().replace(/\s+/g, " ");
 
@@ -108,7 +105,6 @@ export default function Register() {
 
       <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formTranslateY }] }} className="w-full">
         <AppCard className="gap-4">
-          {/* First name */}
           <View className="gap-1">
             <Label nativeID="firstNameLabel" className="text-xs">
               <Text className="text-xs text-foreground">First name</Text>
@@ -129,11 +125,10 @@ export default function Register() {
               </View>
             </View>
 
-            {/* Last name */}
-            <View className="gap-1">
-              <Label nativeID="lastNameLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Last name</Text>
-              </Label>
+          <View className="gap-1">
+            <Label nativeID="lastNameLabel" className="text-xs">
+              <Text className="text-xs text-foreground">Last name</Text>
+            </Label>
               <View className="relative">
                 <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
@@ -151,11 +146,10 @@ export default function Register() {
               </View>
             </View>
 
-            {/* Username */}
-            <View className="gap-1">
-              <Label nativeID="usernameLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Username</Text>
-              </Label>
+          <View className="gap-1">
+            <Label nativeID="usernameLabel" className="text-xs">
+              <Text className="text-xs text-foreground">Username</Text>
+            </Label>
               <View className="relative">
                 <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
@@ -174,11 +168,10 @@ export default function Register() {
               </View>
             </View>
 
-            {/* Email */}
-            <View className="gap-1">
-              <Label nativeID="emailLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Email</Text>
-              </Label>
+          <View className="gap-1">
+            <Label nativeID="emailLabel" className="text-xs">
+              <Text className="text-xs text-foreground">Email</Text>
+            </Label>
               <View className="relative">
                 <Mail size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
@@ -199,11 +192,10 @@ export default function Register() {
               </View>
             </View>
 
-            {/* Password */}
-            <View className="gap-1">
-              <Label nativeID="passwordLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Password</Text>
-              </Label>
+          <View className="gap-1">
+            <Label nativeID="passwordLabel" className="text-xs">
+              <Text className="text-xs text-foreground">Password</Text>
+            </Label>
               <View className="relative">
                 <Lock size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
@@ -222,11 +214,10 @@ export default function Register() {
               </View>
             </View>
 
-            {/* Confirm password */}
-            <View className="gap-1">
-              <Label nativeID="confirmLabel" className="text-xs">
-                <Text className="text-xs text-foreground">Confirm password</Text>
-              </Label>
+          <View className="gap-1">
+            <Label nativeID="confirmLabel" className="text-xs">
+              <Text className="text-xs text-foreground">Confirm password</Text>
+            </Label>
               <View className="relative">
                 <Lock size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
                 <Input
