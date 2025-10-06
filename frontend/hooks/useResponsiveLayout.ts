@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 
+/**
+ * Calculated layout heuristics that help components adapt spacing to various device widths.
+ */
 export type ResponsiveLayout = {
   width: number;
   isCompact: boolean;
@@ -12,6 +15,10 @@ export type ResponsiveLayout = {
   maxContentWidth: number;
 };
 
+/**
+ * Derives responsive layout metrics from the current window dimensions to keep spacing consistent
+ * across small and large screens.
+ */
 export function useResponsiveLayout(): ResponsiveLayout {
   const { width } = useWindowDimensions();
 

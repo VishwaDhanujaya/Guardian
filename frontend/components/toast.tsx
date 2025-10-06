@@ -8,13 +8,19 @@ type ToastData = {
   title?: string;
   message: string;
   variant?: Variant;
-  duration?: number; // ms
+  /** Duration in milliseconds before the toast auto-dismisses. */
+  duration?: number;
 };
 
-// Simple pub/sub so you can call toast.success(...) from anywhere
+/**
+ * Simple publish/subscribe bus for toast notifications so any module can trigger feedback.
+ */
 let subs = new Set<(t: ToastData) => void>();
 let _id = 0;
 
+/**
+ * Convenience helpers for dispatching toast messages with sensible defaults.
+ */
 export const toast = {
   show(opts: Omit<ToastData, "id">) {
     const t: ToastData = { id: ++_id, duration: 2500, variant: "info", ...opts };
@@ -31,6 +37,9 @@ export const toast = {
   },
 };
 
+/**
+ * Overlay component that renders the active toast queue.
+ */
 export function ToastOverlay() {
   const [items, setItems] = useState<ToastData[]>([]);
 

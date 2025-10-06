@@ -13,11 +13,17 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 const HEADER_HEIGHT = 250;
 
+/**
+ * Props for the parallax scroll view, including the header illustration and theme-aware colors.
+ */
 type Props = PropsWithChildren<{
   headerImage: ReactElement;
   headerBackgroundColor: { dark: string; light: string };
 }>;
 
+/**
+ * Scroll view that provides a simple parallax header while respecting the bottom tab offset.
+ */
 export default function ParallaxScrollView({
   children,
   headerImage,

@@ -1,13 +1,10 @@
-// app/index.tsx
 import { router } from "expo-router";
 import { useEffect, useContext } from "react";
 import { ActivityIndicator, InteractionManager, View } from "react-native";
 import { AuthContext } from "@/context/AuthContext";
 
 /**
- * Initial splash/redirect screen.
- * - Waits for interactions to settle, then redirects to /login.
- * - Avoids navigating before the root layout has mounted.
+ * Landing screen that waits for initial interactions before routing to login or home.
  */
 export default function Index() {
   const { session } = useContext(AuthContext);

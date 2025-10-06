@@ -3,6 +3,9 @@ import * as LabelPrimitive from '@rn-primitives/label';
 import { Platform } from 'react-native';
 import type { RefAttributes } from 'react';
 
+/**
+ * Accessible form label that pairs touch handlers with consistent typography.
+ */
 function Label({
   className,
   onPress,

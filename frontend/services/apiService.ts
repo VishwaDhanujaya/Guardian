@@ -1,6 +1,9 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+/**
+ * Shared Axios instance configured with Guardian defaults including base URL and token interceptors.
+ */
 export const apiService = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:2699',
 });

@@ -714,6 +714,9 @@ function MapboxLocationModal({ visible, initialLocation, onSelect, onRequestClos
   );
 }
 
+/**
+ * Form field wrapper for selecting and previewing a Mapbox location with static map imagery.
+ */
 export function MapboxLocationField({
   label = "Location",
   value,

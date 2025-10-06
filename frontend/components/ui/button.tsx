@@ -4,6 +4,9 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Platform, Pressable } from 'react-native';
 import type { ComponentProps, RefAttributes } from 'react';
 
+/**
+ * Tailwind class variants for the Guardian button component.
+ */
 const buttonVariants = cva(
   cn(
     'group shrink-0 flex-row items-center justify-center gap-2 rounded-md shadow-none',
@@ -54,6 +57,9 @@ const buttonVariants = cva(
   }
 );
 
+/**
+ * Text styling variants that keep button copy aligned with the surface state.
+ */
 const buttonTextVariants = cva(
   cn(
     'text-foreground text-sm font-medium',
@@ -89,10 +95,16 @@ const buttonTextVariants = cva(
   }
 );
 
+/**
+ * Props accepted by the Guardian button component.
+ */
 type ButtonProps = ComponentProps<typeof Pressable> &
   RefAttributes<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
+/**
+ * Accessible pressable surface that supports multiple visual variants and auto styled text.
+ */
 function Button({ className, variant, size, ...props }: ButtonProps) {
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>

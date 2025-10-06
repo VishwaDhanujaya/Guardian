@@ -1,6 +1,8 @@
-// This is a shim for web and Android where the tab bar is generally opaque.
 export default undefined;
 
+/**
+ * No-op hook on web and Android because the tab bar does not overlap scroll content.
+ */
 export function useBottomTabOverflow() {
   return 0;
 }

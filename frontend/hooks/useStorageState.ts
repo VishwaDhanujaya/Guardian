@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
+/**
+ * Persists a value in secure storage while exposing loading state so screens can defer rendering
+ * until the initial read resolves.
+ */
 export function useStorageState(key: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [value, setValue] = useState<string | null>(null);
