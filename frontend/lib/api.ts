@@ -81,6 +81,9 @@ function formatRelative(date: string | null | undefined): string {
   return parsed.toLocaleDateString();
 }
 
+/**
+ * Formats a timestamp into a short relative string so timelines stay readable at a glance.
+ */
 export function formatRelativeTime(
   date: string | null | undefined,
 ): string {
@@ -160,6 +163,9 @@ function toNumberOrNull(value: unknown): number | null {
   return null;
 }
 
+/**
+ * Retrieves the signed Mapbox access token for map rendering and throws if none is configured.
+ */
 export async function fetchMapboxToken(): Promise<string> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>("/api/v1/map-box/token"),
@@ -198,6 +204,9 @@ export type Profile = {
   isOfficer: boolean;
 };
 
+/**
+ * Loads the authenticated user's profile and normalises fields for the app.
+ */
 export async function fetchProfile(): Promise<Profile> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>("/api/v1/auth/profile"),
@@ -236,6 +245,9 @@ export type AlertRow = {
   createdAt?: string | null;
 };
 
+/**
+ * Fetches the list of broadcast alerts for the active role and adapts the payload for UI use.
+ */
 export async function fetchAlerts(): Promise<AlertRow[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/alerts"),
@@ -249,6 +261,9 @@ export async function fetchAlerts(): Promise<AlertRow[]> {
   }));
 }
 
+/**
+ * Loads a single alert so edit flows can pre-fill the form with the latest details.
+ */
 export async function getAlert(id: string): Promise<AlertRow> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/alerts/${id}`),
@@ -262,6 +277,9 @@ export async function getAlert(id: string): Promise<AlertRow> {
   };
 }
 
+/**
+ * Creates or updates an alert based on whether an identifier is present, returning the saved row.
+ */
 export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
   const payload = {
     title: data.title,
@@ -281,6 +299,9 @@ export async function saveAlert(data: AlertDraft): Promise<AlertRow> {
   };
 }
 
+/**
+ * Removes an alert from the server so it no longer appears in dashboard listings.
+ */
 export async function deleteAlert(id: string): Promise<void> {
   await apiService.delete(`/api/v1/alerts/${id}`);
 }
@@ -425,6 +446,9 @@ function mapReportWitness(data: any): ReportWitness {
   };
 }
 
+/**
+ * Submits a new incident report including optional media, returning a summary for list views.
+ */
 export async function createReport(
   payload: CreateReportPayload,
 ): Promise<ReportSummary> {
@@ -478,6 +502,9 @@ export async function createReport(
   };
 }
 
+/**
+ * Adds a witness to an incident report and returns the newly created record.
+ */
 export async function createReportWitness(
   reportId: string,
   payload: ReportWitnessPayload,
@@ -496,6 +523,9 @@ export async function createReportWitness(
   return mapReportWitness(data);
 }
 
+/**
+ * Retrieves all incident reports, mapping backend payloads into concise dashboard summaries.
+ */
 export async function fetchReports(): Promise<ReportSummary[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/reports"),
@@ -521,6 +551,9 @@ export async function fetchReports(): Promise<ReportSummary[]> {
   });
 }
 
+/**
+ * Loads chronological notes for a specific report to power the case activity feed.
+ */
 export async function fetchReportNotes(id: string): Promise<Note[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
@@ -530,6 +563,9 @@ export async function fetchReportNotes(id: string): Promise<Note[]> {
   return (Array.isArray(data) ? data : []).map(mapNote);
 }
 
+/**
+ * Retrieves a full incident record including notes, witnesses, and location metadata.
+ */
 export async function getIncident(id: string): Promise<Report> {
   const [report, notes] = await Promise.all([
     unwrap<any>(apiService.get<ApiEnvelope<any>>(`/api/v1/reports/${id}`)),
@@ -579,6 +615,9 @@ export async function getIncident(id: string): Promise<Report> {
   };
 }
 
+/**
+ * Updates the backend status for an incident so officers can progress the workflow.
+ */
 export async function updateReportStatus(
   id: string,
   status: FrontendReportStatus,
@@ -590,6 +629,9 @@ export async function updateReportStatus(
   );
 }
 
+/**
+ * Appends a note to an incident report and returns the new entry for activity timelines.
+ */
 export async function addReportNote(
   reportId: string,
   subject: string,
@@ -688,6 +730,9 @@ export type LostItemPayload = {
   status?: "PENDING" | "INVESTIGATING" | "FOUND" | "CLOSED";
 };
 
+/**
+ * Retrieves items marked as found so citizens can review recent matches.
+ */
 export async function fetchFoundItems(): Promise<FoundItem[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
@@ -734,6 +779,9 @@ function mapLostItemDetail(item: any): LostItemDetail {
   };
 }
 
+/**
+ * Loads the public view of a found item for citizen detail screens.
+ */
 export async function getFoundItem(id: string): Promise<FoundItemDetail> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
@@ -741,6 +789,9 @@ export async function getFoundItem(id: string): Promise<FoundItemDetail> {
   return mapLostItem(data);
 }
 
+/**
+ * Retrieves an officer-facing lost item record with private metadata.
+ */
 export async function getLostItem(id: string): Promise<LostItemDetail> {
   const data = await unwrap<any>(
     apiService.get<ApiEnvelope<any>>(`/api/v1/lost-articles/${id}`),
@@ -748,6 +799,9 @@ export async function getLostItem(id: string): Promise<LostItemDetail> {
   return mapLostItemDetail(data);
 }
 
+/**
+ * Submits a new lost item report from a citizen, including location context for follow-up.
+ */
 export async function reportLostItem(payload: LostItemPayload): Promise<void> {
   const form = new FormData();
   form.append("name", payload.itemName);
@@ -767,6 +821,9 @@ export async function reportLostItem(payload: LostItemPayload): Promise<void> {
   );
 }
 
+/**
+ * Retrieves the officer-facing lost item catalogue for operational review.
+ */
 export async function fetchLostItems(): Promise<LostItemDetail[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>("/api/v1/lost-articles/all"),
@@ -801,6 +858,9 @@ function toLostItemUpdateBody(payload: Partial<LostItemUpdatePayload>) {
   return body;
 }
 
+/**
+ * Applies partial updates to a lost item record from the officer console.
+ */
 export async function updateLostItem(
   id: string,
   payload: Partial<LostItemUpdatePayload>,
@@ -812,6 +872,9 @@ export async function updateLostItem(
   return mapLostItemDetail(data);
 }
 
+/**
+ * Updates the workflow status for a lost item, ensuring officer actions stay in sync.
+ */
 export async function updateLostItemStatus(
   id: string,
   status: LostFrontendStatus,
@@ -824,6 +887,9 @@ export async function updateLostItemStatus(
   return mapLostItemDetail(data);
 }
 
+/**
+ * Retrieves officer notes attached to a lost item for audit history.
+ */
 export async function fetchLostItemNotes(id: string): Promise<ItemNote[]> {
   const data = await unwrap<any[]>(
     apiService.get<ApiEnvelope<any[]>>(`/api/v1/notes/resource/${id}`, {
@@ -833,6 +899,9 @@ export async function fetchLostItemNotes(id: string): Promise<ItemNote[]> {
   return (Array.isArray(data) ? data : []).map(mapNote);
 }
 
+/**
+ * Adds an officer note to a lost item and returns the enriched entry for display.
+ */
 export async function addLostItemNote(
   id: string,
   subject: string,
@@ -861,6 +930,9 @@ export type FoundItemPostPayload = {
   status?: LostFrontendStatus;
 };
 
+/**
+ * Allows officers to publish a found item so citizens can reclaim their belongings.
+ */
 export async function createFoundItem(
   payload: FoundItemPostPayload,
 ): Promise<LostItemDetail> {

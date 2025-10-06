@@ -15,6 +15,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
+/**
+ * Props for the shared app screen wrapper.
+ */
 type AppScreenProps = {
   children: ReactNode;
   scroll?: boolean;
@@ -27,8 +30,8 @@ type AppScreenProps = {
 };
 
 /**
- * Shared atmospheric wrapper for app screens.
- * Adds a soft backdrop, consistent padding, and optional floating action area.
+ * Provides a consistent layout shell with responsive padding, scroll behaviour, and optional
+ * floating action slot.
  */
 export function AppScreen({
   children,
@@ -106,12 +109,15 @@ export function AppScreen({
   );
 }
 
+/**
+ * Props for the atmospheric card surface.
+ */
 type AppCardProps = ViewProps & {
   translucent?: boolean;
 };
 
 /**
- * Frosted card surface with rounded corners and subtle drop shadow.
+ * Frosted card surface with rounded corners and subtle shadow for dashboard content.
  */
 export const AppCard = forwardRef<View, AppCardProps>(
   ({ className, style, translucent = false, ...props }, ref) => {
@@ -131,6 +137,9 @@ export const AppCard = forwardRef<View, AppCardProps>(
 );
 AppCard.displayName = "AppCard";
 
+/**
+ * Props for section headers inside the dashboard shell.
+ */
 type SectionHeaderProps = {
   eyebrow?: string;
   title: string;
@@ -139,7 +148,7 @@ type SectionHeaderProps = {
 };
 
 /**
- * Standardised section heading with optional eyebrow and trailing action.
+ * Standardised section heading with optional eyebrow and trailing action slot.
  */
 export function SectionHeader({ eyebrow, title, description, trailing }: SectionHeaderProps) {
   return (
@@ -164,6 +173,9 @@ export function SectionHeader({ eyebrow, title, description, trailing }: Section
   );
 }
 
+/**
+ * Props for the pill badge component.
+ */
 type PillProps = ViewProps & {
   tone?: "primary" | "accent" | "neutral" | "danger";
   icon?: ComponentType<{ size?: number; color?: string }>;
@@ -171,7 +183,7 @@ type PillProps = ViewProps & {
 };
 
 /**
- * Compact pill badge for statuses/counts.
+ * Compact pill badge for summarising counts or statuses alongside metadata.
  */
 export function Pill({ tone = "neutral", icon: Icon, label, className, style, ...props }: PillProps) {
   const palette = PILL_TONES[tone] ?? PILL_TONES.neutral;
@@ -196,6 +208,9 @@ const PILL_TONES = {
   danger: { bg: "#FEE2E2", fg: "#B91C1C" },
 } as const;
 
+/**
+ * Props for the soft navigation header.
+ */
 type ScreenHeaderProps = {
   title: string;
   subtitle?: string;
@@ -205,7 +220,7 @@ type ScreenHeaderProps = {
 };
 
 /**
- * Soft navigation header with optional back button and trailing action.
+ * Soft navigation header with optional back button, icon, and trailing action area.
  */
 export function ScreenHeader({ title, subtitle, icon: Icon, onBack, action }: ScreenHeaderProps) {
   return (

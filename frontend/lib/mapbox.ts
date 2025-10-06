@@ -9,6 +9,9 @@ export type MapboxLocation = {
 const DEFAULT_LATITUDE = 6.9271; // Colombo, Sri Lanka latitude
 const DEFAULT_LONGITUDE = 79.8612; // Colombo, Sri Lanka longitude
 
+/**
+ * Default map center used when no coordinates are available from the backend.
+ */
 export const DEFAULT_MAPBOX_CENTER: MapboxLocation = {
   latitude: DEFAULT_LATITUDE,
   longitude: DEFAULT_LONGITUDE,
@@ -17,6 +20,9 @@ export const DEFAULT_MAPBOX_CENTER: MapboxLocation = {
 let cachedToken: string | null = null;
 let pendingToken: Promise<string> | null = null;
 
+/**
+ * Provides a cached Mapbox access token, avoiding duplicate network requests across screens.
+ */
 export async function getMapboxAccessToken(): Promise<string> {
   if (cachedToken) {
     return cachedToken;
@@ -37,12 +43,18 @@ export async function getMapboxAccessToken(): Promise<string> {
   return pendingToken;
 }
 
+/**
+ * Formats a latitude and longitude into a compact human-readable string.
+ */
 export function formatCoordinates(latitude: number, longitude: number): string {
   const lat = Number.isFinite(latitude) ? latitude.toFixed(4) : "0";
   const lon = Number.isFinite(longitude) ? longitude.toFixed(4) : "0";
   return `Lat ${lat}, Lon ${lon}`;
 }
 
+/**
+ * Reverse geocodes a coordinate to a friendly place label, optionally using a provided token.
+ */
 export async function reverseGeocodeLocation(
   latitude: number,
   longitude: number,
@@ -82,6 +94,9 @@ function clampDimension(value: number, fallback: number): number {
   return Math.max(64, Math.min(1280, rounded));
 }
 
+/**
+ * Builds a static Mapbox image URL for previewing a location pin within forms.
+ */
 export function buildStaticMapPreviewUrl(
   latitude: number,
   longitude: number,
@@ -130,6 +145,9 @@ export type MapboxSearchResult = MapboxLocation & {
   description?: string;
 };
 
+/**
+ * Queries the Mapbox geocoding API for suggested places, supporting proximity and country hints.
+ */
 export async function searchMapboxLocations(
   query: string,
   options?: {

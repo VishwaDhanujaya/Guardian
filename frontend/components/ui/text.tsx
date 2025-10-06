@@ -67,8 +67,14 @@ const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
   h4: '4',
 };
 
+/**
+ * Context used to cascade typography classes into nested text elements (e.g. buttons).
+ */
 const TextClassContext = createContext<string | undefined>(undefined);
 
+/**
+ * Typography component that normalises text styles and exposes semantic variants across platforms.
+ */
 function Text({
   className,
   asChild = false,

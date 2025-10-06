@@ -10,6 +10,9 @@ import { fetchProfile, type Profile } from '@/lib/api';
 import { useStorageState } from '@/hooks/useStorageState';
 import { apiService } from '@/services/apiService';
 
+/**
+ * Response payload shape returned by the refresh endpoint.
+ */
 interface RefreshResponse {
   data: {
     accessToken: string;
@@ -17,6 +20,9 @@ interface RefreshResponse {
   };
 }
 
+/**
+ * Public surface area of the authentication context, exposing session data and lifecycle helpers.
+ */
 interface IAuthContext {
   session: string | null;
   profile: Profile | null;
@@ -41,6 +47,9 @@ export const AuthContext = createContext<IAuthContext>({
   refreshProfile: async () => null,
 });
 
+/**
+ * Verifies whether the server still considers the stored access token valid.
+ */
 async function accessTokenIsValid(): Promise<boolean> {
   try {
     const request = await apiService.get('/api/v1/auth/is-authed');
@@ -50,6 +59,10 @@ async function accessTokenIsValid(): Promise<boolean> {
   }
 }
 
+/**
+ * Provides authentication state to the application, handling token storage, refresh lifecycles,
+ * and profile hydration so screens can rely on a consistent session view.
+ */
 export function AuthProvider({ children }: PropsWithChildren) {
   const [[isLoadingAccess, accessTokenSession], setAccessTokenSession] =
     useStorageState('accessToken');

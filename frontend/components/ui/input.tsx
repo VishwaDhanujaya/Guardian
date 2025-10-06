@@ -2,6 +2,9 @@ import { cn } from '@/lib/utils';
 import { Platform, TextInput, type TextInputProps } from 'react-native';
 import type { RefAttributes } from 'react';
 
+/**
+ * Text input styled to match Guardian surface tones across platforms.
+ */
 function Input({
   className,
   placeholderClassName,
