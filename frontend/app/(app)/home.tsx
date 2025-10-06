@@ -1065,6 +1065,7 @@ const ChatbotWidget: FC<{
       appId,
       popupWidget: false,
       automaticChatOpenOnNavigation: true,
+      launchWidgetOnLoad: true,
     };
     if (user?.id) settings.userId = user.id;
     if (user?.name) settings.userName = user.name;
@@ -1081,6 +1082,8 @@ const ChatbotWidget: FC<{
       <style>
         html, body { height: 100%; margin: 0; padding: 0; background: transparent; }
         #kommunicate-widget-container { height: 100%; }
+        #kommunicate-widget-container iframe, .mck-sidebox, .km-conversation-wrapper { height: 100% !important; }
+        .km-chat-widget-wrapper { height: 100% !important; max-height: none !important; }
       </style>
     </head><body>
       <div id="kommunicate-widget-container"></div>
@@ -1091,7 +1094,9 @@ const ChatbotWidget: FC<{
           s.src = "https://widget.kommunicate.io/v2/kommunicate.app";
           s.onload = function(){
             var api = window.kommunicate || window.Kommunicate;
-            if (api && typeof api.display === "function") {
+            if (api && typeof api.displayKommunicateWidget === "function") {
+              api.displayKommunicateWidget();
+            } else if (api && typeof api.display === "function") {
               api.display();
             }
             if (api && typeof api.launchConversation === "function") {
@@ -1103,7 +1108,11 @@ const ChatbotWidget: FC<{
           function ensureConversation(){
             var api = window.kommunicate || window.Kommunicate;
             if (api && typeof api.launchConversation === "function") {
-              api.display && api.display();
+              if (typeof api.displayKommunicateWidget === "function") {
+                api.displayKommunicateWidget();
+              } else if (typeof api.display === "function") {
+                api.display();
+              }
               api.launchConversation();
             } else {
               setTimeout(ensureConversation, 400);
