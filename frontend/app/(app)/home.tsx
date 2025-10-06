@@ -15,8 +15,6 @@ import {
 import { AppCard, AppScreen, Pill, SectionHeader, ScreenHeader } from '@/components/app/shell';
 import { toast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import {
   fetchAlerts,
@@ -38,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { WebView } from 'react-native-webview';
 
 
 import {
@@ -280,7 +279,25 @@ export default function Home() {
 
   // Chatbot (citizen only)
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
+  const kommunicateAppId = useMemo(() => {
+    const value = process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID;
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }, []);
+  const kommunicateUser = useMemo(() => {
+    if (!profile) return undefined;
+    const normalise = (val?: string) => {
+      if (typeof val !== 'string') return undefined;
+      const trimmed = val.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+    const id = normalise(profile.id);
+    const name = normalise(profile.name);
+    const email = normalise(profile.email);
+    if (!id && !name && !email) return undefined;
+    return { id, name, email };
+  }, [profile]);
 
   // Pull-to-refresh (refresh profile and surface subtle motion)
   const [refreshing, setRefreshing] = useState(false);
@@ -397,8 +414,8 @@ export default function Home() {
           <ChatbotWidget
             open={chatOpen}
             onToggle={() => setChatOpen((v) => !v)}
-            message={chatMessage}
-            setMessage={setChatMessage}
+            appId={kommunicateAppId}
+            user={kommunicateUser}
           />
         ) : undefined
       }
@@ -1032,13 +1049,39 @@ const Timeline: FC<{
 const ChatbotWidget: FC<{
   open: boolean;
   onToggle: () => void;
-  message: string;
-  setMessage: (v: string) => void;
-}> = ({ open, onToggle, message, setMessage }) => {
+  appId?: string;
+  user?: { id?: string; name?: string; email?: string };
+}> = ({ open, onToggle, appId, user }) => {
   const { width: screenWidth } = useWindowDimensions();
   const contentWidth = Math.max(screenWidth - 40, 0);
   const desiredWidth = Math.max(280, screenWidth - 48);
   const cardWidth = contentWidth > 0 ? Math.min(420, desiredWidth, contentWidth) : Math.min(420, desiredWidth);
+  const kommunicateSettings = useMemo(() => {
+    if (!appId) return null;
+    const settings: Record<string, unknown> = {
+      appId,
+      popupWidget: true,
+      automaticChatOpenOnNavigation: true,
+    };
+    if (user?.id) settings.userId = user.id;
+    if (user?.name) settings.userName = user.name;
+    if (user?.email) settings.email = user.email;
+    return settings;
+  }, [appId, user?.email, user?.id, user?.name]);
+  const kommunicateHtml = useMemo(() => {
+    if (!kommunicateSettings) return null;
+    return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body style="margin:0;padding:0;">
+      <script>
+        (function(d, m){
+          var kommunicateSettings = ${JSON.stringify(kommunicateSettings)};
+          var s = document.createElement("script"); s.type = "text/javascript"; s.async = true;
+          s.src = "https://widget.kommunicate.io/v2/kommunicate.app";
+          var h = document.getElementsByTagName("head")[0]; h.appendChild(s);
+          window.kommunicate = m; m._globals = kommunicateSettings;
+        })(document, window.kommunicate || {});
+      </script>
+    </body></html>`;
+  }, [kommunicateSettings]);
 
   if (!open) {
     return (
@@ -1052,51 +1095,66 @@ const ChatbotWidget: FC<{
     );
   }
 
+  const header = (
+    <View className="flex-row items-center justify-between gap-3">
+      <View className="flex-row items-center gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+          <MessageSquare size={20} color="#0F172A" />
+        </View>
+        <View>
+          <Text className="font-semibold text-foreground">Guardian assistant</Text>
+          <Text className="text-[11px] text-muted-foreground">Ask about incidents, lost &amp; found, and alerts.</Text>
+        </View>
+      </View>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel="Close chat"
+        className="h-9 w-9 items-center justify-center rounded-full border border-border bg-white"
+        android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: false }}
+      >
+        <X size={18} color="#0F172A" />
+      </Pressable>
+    </View>
+  );
+
+  if (!appId) {
+    return (
+      <AppCard className="max-w-full gap-5 p-6" style={{ width: cardWidth, alignSelf: 'flex-end' }}>
+        {header}
+        <View className="gap-3 rounded-3xl bg-muted p-5">
+          <Text className="text-base font-semibold text-foreground">Chat unavailable</Text>
+          <Text className="text-sm leading-relaxed text-muted-foreground">
+            Add EXPO_PUBLIC_KOMMUNICATE_APP_ID to your Expo scripts to enable the Guardian assistant.
+          </Text>
+        </View>
+      </AppCard>
+    );
+  }
+
   return (
     <AppCard className="max-w-full gap-5 p-6" style={{ width: cardWidth, alignSelf: 'flex-end' }}>
-      <View className="flex-row items-center justify-between gap-3">
-        <View className="flex-row items-center gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <MessageSquare size={20} color="#0F172A" />
+      {header}
+      <View className="h-[420px] overflow-hidden rounded-3xl bg-muted">
+        {kommunicateHtml ? (
+          <WebView
+            originWhitelist={['*']}
+            source={{ html: kommunicateHtml }}
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState
+            renderLoading={() => (
+              <View className="flex-1 items-center justify-center bg-muted">
+                <ActivityIndicator size="small" color="#0F172A" />
+              </View>
+            )}
+            style={{ backgroundColor: 'transparent' }}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center bg-muted">
+            <ActivityIndicator size="small" color="#0F172A" />
           </View>
-          <View>
-            <Text className="font-semibold text-foreground">Guardian assistant</Text>
-            <Text className="text-[11px] text-muted-foreground">Ask about incidents, lost &amp; found, and alerts.</Text>
-          </View>
-        </View>
-        <Pressable
-          onPress={onToggle}
-          accessibilityRole="button"
-          accessibilityLabel="Close chat"
-          className="h-9 w-9 items-center justify-center rounded-full border border-border bg-white"
-          android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: false }}
-        >
-          <X size={18} color="#0F172A" />
-        </Pressable>
-      </View>
-
-      <View className="rounded-3xl bg-muted p-5">
-        <Text className="text-base leading-relaxed text-muted-foreground">
-          Hi! I can help with incidents, lost &amp; found, and safety alerts. Ask me anything.
-        </Text>
-      </View>
-
-      <View className="flex-row items-center gap-3">
-        <Label nativeID="chatInput" className="hidden">
-          <Text>Message</Text>
-        </Label>
-        <Input
-          aria-labelledby="chatInput"
-          value={message}
-          onChangeText={setMessage}
-          placeholder="Type your message…"
-          className="h-12 flex-1 rounded-full bg-white px-4"
-          returnKeyType="send"
-          onSubmitEditing={() => setMessage('')}
-        />
-        <Button onPress={() => setMessage('')} className="h-12 rounded-full px-6">
-          <Text className="text-primary-foreground">Send</Text>
-        </Button>
+        )}
       </View>
     </AppCard>
   );

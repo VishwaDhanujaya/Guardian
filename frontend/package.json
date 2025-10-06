@@ -3,10 +3,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "dev": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
-    "android": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --android",
-    "ios": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --ios",
-    "web": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --web",
+    "start": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 EXPO_PUBLIC_KOMMUNICATE_APP_ID=1bc1af724f54a2ea777cb03d818d6a3a0 expo start -c",
+    "dev": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 EXPO_PUBLIC_KOMMUNICATE_APP_ID=1bc1af724f54a2ea777cb03d818d6a3a0 expo start -c",
+    "android": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 EXPO_PUBLIC_KOMMUNICATE_APP_ID=1bc1af724f54a2ea777cb03d818d6a3a0 expo start -c --android",
+    "ios": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 EXPO_PUBLIC_KOMMUNICATE_APP_ID=1bc1af724f54a2ea777cb03d818d6a3a0 expo start -c --ios",
+    "web": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 EXPO_PUBLIC_KOMMUNICATE_APP_ID=1bc1af724f54a2ea777cb03d818d6a3a0 expo start -c --web",
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
