@@ -99,6 +99,7 @@ export default function Home() {
     profile,
     profileLoading,
     refreshProfile,
+    logout,
   } = useContext(AuthContext);
   const layout = useResponsiveLayout();
 
@@ -299,7 +300,10 @@ export default function Home() {
     });
   }, [session, refreshProfile, loadDashboardData]);
 
-  const onSignOut = () => router.replace('/login');
+  const onSignOut = useCallback(async () => {
+    await logout();
+    router.replace('/login');
+  }, [logout]);
 
   useEffect(() => {
     if (profile || profileLoading) return;
