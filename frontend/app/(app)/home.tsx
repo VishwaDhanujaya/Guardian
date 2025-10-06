@@ -86,10 +86,10 @@ const TONE_BG_FAINT: Record<Tone, string> = {
 };
 
 /**
- * Role-aware dashboard screen.
- * - Renders citizen/officer home with mock data and subtle entrance animations.
- * - Provides quick navigation to incidents flows and common actions.
- * - Pulls authenticated profile details to personalise the greeting.
+ * Role-aware dashboard screen that personalises the experience for citizens and officers.
+ * Fetches key alerts, reports, and lost items to surface actionable insights.
+ *
+ * @returns The dashboard UI for the authenticated user.
  */
 export default function Home() {
   const params = useLocalSearchParams<{ role?: string }>();
@@ -689,8 +689,10 @@ export default function Home() {
 }
 
 /**
- * Return a local greeting for the given hour.
+ * Returns a localised greeting for the supplied hour of day.
+ *
  * @param hour - 0–23 hour in local time.
+ * @returns A greeting string appropriate for the time of day.
  */
 function getGreeting(hour: number): 'Good morning' | 'Good afternoon' | 'Good evening' {
   if (hour < 12) return 'Good morning';

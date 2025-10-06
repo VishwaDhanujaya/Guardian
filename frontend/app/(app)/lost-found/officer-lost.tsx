@@ -136,6 +136,11 @@ const buildRow = (item: LostItemDetail, previous?: Row): Row => {
 
 const isTabKey = (v: any): v is TabKey => v === "pending" || v === "searching" || v === "returned";
 
+/**
+ * Officer lost-items queue that triages citizen submissions and manages follow-up tasks.
+ *
+ * @returns The officer lost-items management UI.
+ */
 export default function OfficerLost() {
   const { role, tab: tabParam } = useLocalSearchParams<{ role?: string; tab?: string }>();
   const resolvedRole: Role = role === "officer" ? "officer" : "citizen";

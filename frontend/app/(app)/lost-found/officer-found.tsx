@@ -57,6 +57,11 @@ const toFoundItemCard = (item: LostItemDetail): FoundItem => ({
   postedAt: formatRelativeTime(item.createdAt ?? undefined),
 });
 
+/**
+ * Officer workflow for cataloguing found items and reviewing citizen reports.
+ *
+ * @returns The officer found-items UI.
+ */
 export default function OfficerFound() {
   const navigation = useNavigation<any>();
   const goBack = () => {

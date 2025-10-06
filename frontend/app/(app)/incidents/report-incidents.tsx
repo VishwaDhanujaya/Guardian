@@ -1,4 +1,3 @@
-// app/(app)/incidents/report-incidents.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -73,10 +72,10 @@ type ReportAttachment = {
 const MAX_ATTACHMENTS = 12;
 
 /**
- * Citizen incident report screen.
- * - Collects category, location, description, and optional witnesses.
- * - Performs lightweight client-side validation and shows inline guidance.
- * - Stubs submission; replace with API integration when backend is ready.
+ * Citizen incident report screen that collects key details and posts them to the backend.
+ * Handles attachments, witnesses, and location input with light validation.
+ *
+ * @returns The incident report UI.
  */
 export default function ReportIncidents() {
   const { role } = useLocalSearchParams<{ role?: string }>();

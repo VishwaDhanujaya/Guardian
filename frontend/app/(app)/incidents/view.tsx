@@ -1,4 +1,3 @@
-// app/(app)/incidents/view.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -93,6 +92,11 @@ function getMockReport(id: string): Report {
   };
 }
 
+/**
+ * Incident detail screen for citizens and officers with status controls and notes.
+ *
+ * @returns The incident detail UI.
+ */
 export default function ViewIncident() {
   const { id, role: roleParam, tab: tabParam } = useLocalSearchParams<{ id?: string; role?: string; tab?: string }>();
   const role: Role = roleParam === "officer" ? "officer" : "citizen";

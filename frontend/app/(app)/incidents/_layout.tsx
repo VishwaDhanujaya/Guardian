@@ -1,9 +1,9 @@
-// app/(app)/incidents/_layout.tsx
 import { Stack } from "expo-router";
 
 /**
- * Incidents group layout.
- * Stacks incident-related screens with headers hidden.
+ * Incidents stack layout that groups incident workflows without default headers.
+ *
+ * @returns The stack configuration for incident routes.
  */
 export default function IncidentsLayout() {
   return (

@@ -1,6 +1,9 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+/**
+ * Preconfigured Axios instance that injects auth headers and refreshes tokens on 401s.
+ */
 export const apiService = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:2699',
 });

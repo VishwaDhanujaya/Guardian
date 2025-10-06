@@ -1,4 +1,3 @@
-// app/(app)/lost-found/view.tsx
 import { useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,6 +35,12 @@ import {
 type Section = "pending" | "searching" | "returned";
 const isSection = (v: any): v is Section => v === "pending" || v === "searching" || v === "returned";
 
+/**
+ * Lost and found detail screen shared by citizen and officer flows.
+ * Loads the appropriate record, supports status updates, and surfaces location context.
+ *
+ * @returns The lost-and-found detail UI.
+ */
 export default function LostFoundView() {
   const { id, type, role, tab: tabParam } = useLocalSearchParams<{ id: string; type: "found" | "lost"; role?: string; tab?: string }>();
   const navigation = useNavigation<any>();

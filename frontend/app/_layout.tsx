@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import { ToastOverlay } from "@/components/toast";
 import { AuthProvider } from "@/context/AuthContext";
 import { PortalHost } from "@rn-primitives/portal";
@@ -7,10 +6,10 @@ import { SafeAreaView, StatusBar } from "react-native";
 import "../global.css";
 
 /**
- * Root application layout.
- * - Applies a light background and safe-area container.
- * - Renders routed content  <Slot />.
- * - Hosts global overlays (toasts, portals) mounted once at the root.
+ * Root application layout that wires global providers and overlay hosts.
+ * Applies a light safe-area container and renders the routed content.
+ *
+ * @returns The root layout tree shared by every screen.
  */
 export default function RootLayout() {
   return (
@@ -22,7 +21,6 @@ export default function RootLayout() {
         </SafeAreaView>
       </AuthProvider>
 
-      {/* Global overlay hosts (single mount) */}
       <ToastOverlay />
       <PortalHost />
     </>

@@ -1,4 +1,3 @@
-// app/(auth)/login.tsx
 import { router } from "expo-router";
 import {
   useEffect,
@@ -50,10 +49,10 @@ interface LoginResponse {
 type Role = "citizen" | "officer";
 
 /**
- * Login screen for Guardian.
- * - Roles: Citizen (username) and Officer (numeric ID).
- * - Animated role switcher and form transitions.
- * - Basic validation + navigation stubs.
+ * Login screen that authenticates citizens and officers against the backend API.
+ * Provides animated role switching and triggers MFA routing when required.
+ *
+ * @returns The login form UI.
  */
 export default function Login() {
   const [tab, setTab] = useState<Role>("citizen");
@@ -81,8 +80,7 @@ export default function Login() {
     : citizenIdentifier.length > 0 && password.length >= 6;
   const passwordRef = useRef<any>(null);
 
-  // Animations
-  const roleAnim = useRef(new Animated.Value(0)).current; // 0 = citizen, 1 = officer
+  const roleAnim = useRef(new Animated.Value(0)).current;
   const formSwitchAnim = useRef(new Animated.Value(1)).current;
   const textSwitchAnim = useRef(new Animated.Value(1)).current;
   const [railW, setRailW] = useState(0);
@@ -122,7 +120,6 @@ export default function Login() {
     });
   }, [isOfficer]);
 
-  // Derived animated values
   const tabWidth = railW > 0 ? railW / 2 : 0;
   const indicatorTX = roleAnim.interpolate({ inputRange: [0, 1], outputRange: [0, tabWidth] });
   const formOpacity = formSwitchAnim.interpolate({ inputRange: [0.9, 1], outputRange: [0.95, 1] });
@@ -131,16 +128,14 @@ export default function Login() {
   const labelTranslateY = textSwitchAnim.interpolate({ inputRange: [0, 1], outputRange: [4, 0] });
 
   /**
-   * Normalize identifier by role.
-   * - Officer: strip non-digits.
-   * - Citizen: collapse internal whitespace and trim.
+   * Normalise the identifier before submission so the API receives consistent data.
    */
   const sanitizeIdentifier = (value: string): string => {
     return isOfficer ? formatOfficerId(value) : value.replace(/\s+/g, "");
   };
 
   /**
-   * Handle sign-in flow via backend.
+   * Submit credentials to the backend, handling MFA redirects and login persistence.
    */
   const onSignIn = async (): Promise<void> => {
     if (loading) return;

@@ -13,7 +13,7 @@ lostArticlesRouter.post(
 );
 
 lostArticlesRouter.delete(
-  "/lostArticleId",
+  "/:lostArticleId",
   OfficerAuthenticationMiddleware,
   lostArticlesControler.delete,
 );
@@ -26,7 +26,7 @@ lostArticlesRouter.post(
 lostArticlesRouter.delete(
   "/personal-details/:lostArticleId/:personalDetailsId",
   OfficerAuthenticationMiddleware,
-  lostArticlesControler.createPersonalDetails,
+  lostArticlesControler.deletePersonalDetails,
 );
 
 lostArticlesRouter.get("/all", lostArticlesControler.getAll);

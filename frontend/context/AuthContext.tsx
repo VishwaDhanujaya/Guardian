@@ -29,6 +29,9 @@ interface IAuthContext {
   refreshProfile: (tokenOverride?: string | null) => Promise<Profile | null>;
 }
 
+/**
+ * Shared authentication context used across the app for session and profile management.
+ */
 export const AuthContext = createContext<IAuthContext>({
   session: null,
   profile: null,
@@ -50,6 +53,12 @@ async function accessTokenIsValid(): Promise<boolean> {
   }
 }
 
+/**
+ * Provides authentication state, refresh logic, and profile data to child components.
+ *
+ * @param children - React subtree receiving authentication context.
+ * @returns Context provider that wraps the app.
+ */
 export function AuthProvider({ children }: PropsWithChildren) {
   const [[isLoadingAccess, accessTokenSession], setAccessTokenSession] =
     useStorageState('accessToken');

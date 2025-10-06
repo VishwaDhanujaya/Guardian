@@ -1,10 +1,11 @@
-// app/(app)/lost-found/index.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 
 /**
- * Lost & Found index.
- * Redirects to citizen or officer found items based on `role` query.
+ * Lost & Found index screen that redirects to the appropriate flow by role.
+ * Defaults to the citizen experience when the role is missing or invalid.
+ *
+ * @returns Nothing; navigation happens immediately.
  */
 export default function LostFoundIndex() {
   const { role } = useLocalSearchParams<{ role?: string }>();

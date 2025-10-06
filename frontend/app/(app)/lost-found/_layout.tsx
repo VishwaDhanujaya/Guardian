@@ -1,9 +1,9 @@
-// app/(app)/lost-found/_layout.tsx
 import { Stack } from "expo-router";
 
 /**
- * Lost & Found group layout.
- * Stacks lost-found related screens without headers.
+ * Lost & Found stack layout that keeps related flows grouped and headerless.
+ *
+ * @returns The stack configuration for lost-and-found routes.
  */
 export default function LostFoundLayout() {
   return (
