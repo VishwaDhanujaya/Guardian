@@ -7,7 +7,7 @@ class NotesService {
     subject: z.string(),
     content: z.string(),
     resource_id: z.preprocess((val) => Number(val), z.number()).optional(),
-    resource_type: z.literal(["report", "lost-article"]),
+    resource_type: z.enum(["report", "lost-article"]),
   });
 
   noteUpdateValidation = z.object({
@@ -17,7 +17,7 @@ class NotesService {
 
   resourceGetPropertiesValidation = z.object({
     resourceId: z.preprocess((val) => Number(val), z.number()).optional(),
-    resourceType: z.literal(["report", "lost-article"]),
+    resourceType: z.enum(["report", "lost-article"]),
     userId: z.number(),
     officer: z.boolean().optional(),
   });
