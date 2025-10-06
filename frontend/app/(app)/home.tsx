@@ -1093,7 +1093,7 @@ const ChatbotWidget: FC<{
           var s = document.createElement("script"); s.type = "text/javascript"; s.async = true;
           s.src = "https://widget.kommunicate.io/v2/kommunicate.app";
           s.onload = function(){
-            var api = window.kommunicate || window.Kommunicate;
+            const api = window.Kommunicate || window.kommunicate;
             if (api && typeof api.displayKommunicateWidget === "function") {
               api.displayKommunicateWidget();
             } else if (api && typeof api.display === "function") {
@@ -1106,7 +1106,7 @@ const ChatbotWidget: FC<{
           var h = document.getElementsByTagName("head")[0]; h.appendChild(s);
           window.kommunicate = m; m._globals = kommunicateSettings;
           function ensureConversation(){
-            var api = window.kommunicate || window.Kommunicate;
+            const api = window.Kommunicate || window.kommunicate;
             if (api && typeof api.launchConversation === "function") {
               if (typeof api.displayKommunicateWidget === "function") {
                 api.displayKommunicateWidget();
