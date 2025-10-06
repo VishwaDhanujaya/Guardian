@@ -283,6 +283,7 @@ export default function Home() {
     const candidates = [
       process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID,
       process.env.EXPO_PUBLIC_COMMUNICATE_APP_ID,
+      '1bc1af724f54a2ea777cb03d818d6a3a0',
     ];
     const match = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
     return match?.trim();
