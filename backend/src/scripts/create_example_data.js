@@ -365,7 +365,7 @@ async function createUsers() {
   for (const citizen of citizens) {
     const user = new UserModel(
       citizen.username,
-      DEFAULT_ACCOUNT_EMAIL,
+      AUTO_GENERATED_EMAIL,
       citizen.password,
       citizen.firstName,
       citizen.lastName,
@@ -387,7 +387,7 @@ async function createOfficers() {
   for (const officer of officers) {
     const user = new UserModel(
       officer.username,
-      DEFAULT_ACCOUNT_EMAIL,
+      AUTO_GENERATED_EMAIL,
       officer.password,
       officer.firstName,
       officer.lastName,
