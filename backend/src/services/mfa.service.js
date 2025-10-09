@@ -8,6 +8,7 @@ const { randomInt } = require("node:crypto");
 const argon2 = require("argon2");
 const HttpError = require("src/utils/http-error");
 const mailTransporter = require("src/config/nodemailer.config");
+const defaultLogger = require("src/config/logging");
 const lastSent = {};
 
 class MFAService {
@@ -73,6 +74,28 @@ class MFAService {
       { sub: userId, jti: sessionId, exp, code: hashedCode, email },
       process.env.JWT_MFA_SECRET,
     );
+
+    const smtpConfigEntries = [
+      ["SMTP_HOST", process.env.SMTP_HOST],
+      ["SMTP_PORT", process.env.SMTP_PORT],
+      ["SMTP_USER", process.env.SMTP_USER],
+      ["SMTP_PASS", process.env.SMTP_PASS],
+    ];
+
+    const missingSmtpVars = smtpConfigEntries
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingSmtpVars.length > 0) {
+      const clientMessage =
+        "MFA email transport is not configured—please set SMTP_* env vars";
+
+      defaultLogger?.warn?.(
+        `${clientMessage}. Missing: ${missingSmtpVars.join(", ")}`,
+      );
+
+      throw new HttpError({ code: 500, clientMessage });
+    }
 
     await mailTransporter.sendMail({
       to: email,
