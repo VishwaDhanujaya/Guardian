@@ -97,10 +97,31 @@ class MFAService {
       throw new HttpError({ code: 500, clientMessage });
     }
 
+    const textBody = `Your Guardian MFA code is ${code}. It expires in 10 minutes.`;
+    const htmlBody = `
+      <div style="font-family: 'Segoe UI', sans-serif; background:#f5f7fb; padding:24px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden;">
+          <tr>
+            <td style="background:#243b53; color:#ffffff; padding:24px; text-align:center;">
+              <h1 style="margin:0; font-size:20px;">Guardian MFA code</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px; color:#334e68;">
+              <p style="margin:0 0 16px;">Use this one-time code to finish signing in. It expires in 10 minutes.</p>
+              <div style="font-size:32px; font-weight:700; letter-spacing:8px; color:#243b53; text-align:center;">${code}</div>
+              <p style="margin:24px 0 0; font-size:12px; color:#829ab1;">If you didn’t request this code, you can ignore this email.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+
     await mailTransporter.sendMail({
       to: email,
-      subject: "Guardian 2FA Code",
-      html: `<h1>${code}</h1>`,
+      subject: "Guardian MFA code",
+      text: textBody,
+      html: htmlBody,
     });
 
     lastSent[userId] = now;
