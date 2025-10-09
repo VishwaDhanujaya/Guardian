@@ -191,14 +191,16 @@ class LostArticleService {
    * @returns {Promise<boolean>}
    */
   async deleteById(id) {
-    if (!id || Number.isNaN(id)) {
+    const numericId = Number(id);
+
+    if (!id || Number.isNaN(numericId)) {
       throw new HttpError({
         code: 400,
         clientMessage: "lostArticleId must be included",
       });
     }
 
-    const result = await LostItemModel.deleteWhere("id", id);
+    const result = await LostItemModel.deleteWhere("id", numericId);
 
     return result?.changes !== 0;
   }

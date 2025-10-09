@@ -5,6 +5,7 @@ const chaiAsPromised = require("chai-as-promised").default;
 const setupBaseModelStubs = require("../testing-utils/baseModelMocks");
 const lostArticleService = require("src/services/lost-articles.service");
 const personalDetailsService = require("src/services/personal-details.service");
+const HttpError = require("src/utils/http-error");
 
 chai.use(sinonChai);
 chai.use(chaiAsPromised);
@@ -96,6 +97,13 @@ describe("LostArticleService", () => {
 
     it("should throw if lostArticleId missing", async () => {
       await expect(lostArticleService.deleteById()).to.be.rejected;
+    });
+
+    it("should throw if lostArticleId is not a number", async () => {
+      await expect(lostArticleService.deleteById("abc")).to.be.rejectedWith(
+        HttpError,
+        "lostArticleId must be included",
+      );
     });
 
     it("should propagate errors", async () => {
