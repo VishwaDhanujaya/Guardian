@@ -33,7 +33,11 @@ lostArticlesRouter.get("/all", lostArticlesControler.getAll);
 
 lostArticlesRouter.get("/:id", lostArticlesControler.getById);
 
-lostArticlesRouter.patch("/:id", lostArticlesControler.update);
+lostArticlesRouter.patch(
+  "/:id",
+  OfficerAuthenticationMiddleware,
+  lostArticlesControler.update,
+);
 
 lostArticlesRouter.patch(
   "/:id/status",
