@@ -430,15 +430,9 @@ paths:
             schema:
               type: object
               properties:
-                first_name:
+                full_name:
                   type: string
-                  example: "John"
-                last_name:
-                  type: string
-                  example: "Smith"
-                date_of_birth:
-                  type: string
-                  example: "2025-09-24"
+                  example: "John Smith"
                 contact_number:
                   type: string
                   example: "(02) 1234 5678"
@@ -1452,15 +1446,9 @@ components:
     Witness:
       type: object
       properties:
-        first_name:
+        full_name:
           type: string
-          example: "John"
-        last_name:
-          type: string
-          example: "Smith"
-        date_of_birth:
-          type: string
-          example: "2025-09-24"
+          example: "John Smith"
         contact_number:
           type: string
           example: "(02) 1234 5678"

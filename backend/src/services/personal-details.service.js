@@ -10,6 +10,11 @@ class PersonalDetailsService {
     contact_number: z.string(),
   });
 
+  ReportWitnessValidation = z.object({
+    full_name: z.string().trim().min(1),
+    contact_number: z.string().trim().min(1),
+  });
+
   async create(body) {
     const { first_name, last_name, date_of_birth, contact_number } =
       this.PersonalDetailsValidation.parse(body);
@@ -30,7 +35,15 @@ class PersonalDetailsService {
    *  @returns {Promise<PersonalDetailsModel>}
    */
   async createReportWitness(body, report_id) {
-    const personalDetails = await this.create(body);
+    const { full_name, contact_number } =
+      this.ReportWitnessValidation.parse(body);
+
+    const personalDetails = new PersonalDetailsModel(
+      full_name,
+      null,
+      null,
+      contact_number,
+    );
     personalDetails.attachToReport(report_id);
     return await personalDetails.save();
   }

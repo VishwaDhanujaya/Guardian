@@ -30,7 +30,6 @@ import { buildStaticMapPreviewUrl, getMapboxAccessToken } from "@/lib/mapbox";
 import {
   AlertTriangle,
   BadgeCheck,
-  Calendar,
   CalendarDays,
   CheckCircle,
   CheckCircle2,
@@ -83,8 +82,8 @@ function getMockReport(id: string): Report {
       },
     ],
     witnesses: [
-      { id: "w1", firstName: "Evelyn Grant", lastName: "", dateOfBirth: "", contactNumber: "" },
-      { id: "w2", firstName: "Marcus Reid", lastName: "", dateOfBirth: "", contactNumber: "" },
+      { id: "w1", fullName: "Evelyn Grant", contactNumber: "" },
+      { id: "w2", fullName: "Marcus Reid", contactNumber: "" },
     ],
     rawStatus: "PENDING",
     images: [
@@ -405,7 +404,7 @@ export default function ViewIncident() {
                   <View className="mt-2 gap-2">
                     {mockReport.witnesses.map((w) => (
                       <Text key={w.id} className="text-sm text-foreground">
-                        • {[w.firstName, w.lastName].filter(Boolean).join(" ") || "Unnamed witness"}
+                        • {w.fullName?.trim?.() || "Unnamed witness"}
                       </Text>
                     ))}
                   </View>
@@ -451,22 +450,6 @@ export default function ViewIncident() {
 
   const formatPhoneDisplay = (value: string) =>
     /^0\d{9}$/.test(value) ? value.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : value || "Not provided";
-
-  const formatDobDisplay = (value: string) => {
-    if (!value) return "Not provided";
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return value;
-    const year = Number(match[1]);
-    const month = Number(match[2]) - 1;
-    const day = Number(match[3]);
-    const date = new Date(year, month, day);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const witnesses = report.witnesses ?? [];
   const attachments = Array.isArray(report.images)
@@ -623,37 +606,22 @@ export default function ViewIncident() {
             {witnesses.length > 0 ? (
               <View className="gap-2">
                 {witnesses.map((w) => {
-                  const name = [w.firstName, w.lastName].filter(Boolean).join(" ").trim();
-                  const dobValue = typeof w.dateOfBirth === "string" ? w.dateOfBirth.trim() : "";
+                  const name = typeof w.fullName === "string" ? w.fullName.trim() : "";
                   const contactValue = typeof w.contactNumber === "string" ? w.contactNumber.trim() : "";
-                  const detailChips: ReactNode[] = [];
-
-                  if (dobValue) {
-                    detailChips.push(
-                      <View key={`${w.id}-dob`} className="flex-row items-center gap-1">
-                        <Calendar size={12} color="#0F172A" />
-                        <Text className="text-[11px] text-muted-foreground">{formatDobDisplay(dobValue)}</Text>
-                      </View>,
-                    );
-                  }
-
-                  if (contactValue) {
-                    detailChips.push(
-                      <View key={`${w.id}-contact`} className="flex-row items-center gap-1">
-                        <Phone size={12} color="#0F172A" />
-                        <Text className="text-[11px] text-muted-foreground">{formatPhoneDisplay(contactValue)}</Text>
-                      </View>,
-                    );
-                  }
 
                   return (
                     <View key={w.id} className="bg-background border border-border rounded-xl px-3 py-2">
                       <Text className="text-[13px] text-foreground">{name || "Unnamed witness"}</Text>
-                      {detailChips.length > 0 ? (
-                        <View className="mt-1 flex-row flex-wrap items-center gap-3">{detailChips}</View>
+                      {contactValue ? (
+                        <View className="mt-1 flex-row items-center gap-2">
+                          <Phone size={12} color="#0F172A" />
+                          <Text className="text-[11px] text-muted-foreground">
+                            {formatPhoneDisplay(contactValue)}
+                          </Text>
+                        </View>
                       ) : (
                         <Text className="mt-1 text-[11px] text-muted-foreground">
-                          No additional contact details were provided.
+                          No contact number was provided.
                         </Text>
                       )}
                     </View>
