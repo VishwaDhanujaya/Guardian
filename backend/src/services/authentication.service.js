@@ -37,7 +37,7 @@ async function verifyPasswordHash(hash, password) {
 const UserRegister = z.object({
   username: z.string().min(5),
   password: z.string().min(8),
-  email: z.string().optional(),
+  email: z.string().email().optional(),
   first_name: z.string(),
   last_name: z.string(),
 });

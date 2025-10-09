@@ -7,6 +7,7 @@ const LostItemModel = require("../models/lost-item.model");
 const NoteModel = require("../models/note.model");
 const PersonalDetailsModel = require("../models/personal-details.model");
 const AlertModel = require("../models/alert.model");
+const AUTO_GENERATED_EMAIL = "appliedprojectecu@gmail.com";
 
 async function resetDatabase() {
   await recreateDatabase();
@@ -60,42 +61,42 @@ const citizens = [
   {
     username: "maria.lopez",
     password: "Guardian!234",
-    email: "maria.lopez@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Maria",
     lastName: "Lopez",
   },
   {
     username: "james.edwards",
     password: "Guardian!234",
-    email: "james.edwards@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "James",
     lastName: "Edwards",
   },
   {
     username: "aaliyah.chen",
     password: "Guardian!234",
-    email: "aaliyah.chen@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Aaliyah",
     lastName: "Chen",
   },
   {
     username: "noah.patel",
     password: "Guardian!234",
-    email: "noah.patel@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Noah",
     lastName: "Patel",
   },
   {
     username: "sofia.martin",
     password: "Guardian!234",
-    email: "sofia.martin@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Sofia",
     lastName: "Martin",
   },
   {
     username: "oliver.kim",
     password: "Guardian!234",
-    email: "oliver.kim@example.com",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Oliver",
     lastName: "Kim",
   },
@@ -105,21 +106,21 @@ const officers = [
   {
     username: "OF-201",
     password: "Guardian!234",
-    email: "elena.hughes@guardian.demo",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Elena",
     lastName: "Hughes",
   },
   {
     username: "OF-305",
     password: "Guardian!234",
-    email: "rohan.singh@guardian.demo",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Rohan",
     lastName: "Singh",
   },
   {
     username: "OF-442",
     password: "Guardian!234",
-    email: "priya.nair@guardian.demo",
+    email: AUTO_GENERATED_EMAIL,
     firstName: "Priya",
     lastName: "Nair",
   },
@@ -364,7 +365,7 @@ async function createUsers() {
   for (const citizen of citizens) {
     const user = new UserModel(
       citizen.username,
-      citizen.email,
+      DEFAULT_ACCOUNT_EMAIL,
       citizen.password,
       citizen.firstName,
       citizen.lastName,
@@ -386,7 +387,7 @@ async function createOfficers() {
   for (const officer of officers) {
     const user = new UserModel(
       officer.username,
-      officer.email,
+      DEFAULT_ACCOUNT_EMAIL,
       officer.password,
       officer.firstName,
       officer.lastName,
