@@ -3,6 +3,8 @@ const { promisify } = require("node:util");
 const UserModel = require("src/models/user.model");
 const z = require("zod");
 
+const AUTO_GENERATED_EMAIL = "appliedprojectecu@gmail.com";
+
 const CreateOfficerSchema = z
   .tuple([z.string(), z.string(), z.string().min(8), z.email()])
   .transform(([firstName, lastName, password, email]) => ({
@@ -53,8 +55,10 @@ async function createOfficer() {
   const userInput = getUserInput();
   const user = await new UserModel(
     generateUsername(),
-    userInput.email,
+    userInput.email || AUTO_GENERATED_EMAIL,
     userInput.password,
+    userInput.first_name,
+    userInput.last_name,
     1,
   ).save();
   console.table(user);
