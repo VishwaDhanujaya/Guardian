@@ -57,6 +57,15 @@ type Witness = {
   expanded: boolean;
 };
 
+type WitnessSectionProps = {
+  witnesses: Witness[];
+  setWitnesses: Dispatch<SetStateAction<Witness[]>>;
+  nameRefs: MutableRefObject<Record<string, RNTextInput | null>>;
+  isValidPhone: (value: string) => boolean;
+  formatPhoneDisplay: (value: string) => string;
+  sanitizeName: (value: string) => string;
+};
+
 type ReportAttachment = {
   id: string;
   uri: string;
@@ -503,7 +512,7 @@ function WitnessSection({
   isValidPhone,
   formatPhoneDisplay,
   sanitizeName,
-) {
+}: WitnessSectionProps) {
   const sanitizePhone = (v: string) => v.replace(/\D+/g, "").slice(0, 10);
 
   const phoneCounts = useMemo(() => {
