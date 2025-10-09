@@ -78,6 +78,46 @@ describe("LostArticleService", () => {
     });
   });
 
+  describe("canModify", () => {
+    it("allows officers to modify returned items", async () => {
+      const canModify = await lostArticleService.canModify(1, 2, true);
+      expect(canModify).to.be.true;
+    });
+
+    it("denies citizens when the item has been found", async () => {
+      baseModelStubs.findById.resolves({
+        id: 7,
+        status: "FOUND",
+        user_id: 99,
+      });
+
+      const canModify = await lostArticleService.canModify(7, 99, false);
+
+      expect(baseModelStubs.findById).to.have.been.calledWithExactly(7);
+      expect(canModify).to.be.false;
+    });
+
+    it("allows citizens to modify their own active item", async () => {
+      baseModelStubs.findById.resolves({
+        id: 4,
+        status: "PENDING",
+        user_id: 55,
+      });
+
+      const canModify = await lostArticleService.canModify(4, 55, false);
+
+      expect(canModify).to.be.true;
+    });
+
+    it("returns false when the item does not exist", async () => {
+      baseModelStubs.findById.resolves(null);
+
+      const canModify = await lostArticleService.canModify(11, 22, false);
+
+      expect(canModify).to.be.false;
+    });
+  });
+
   describe("deleteById", () => {
     it("should delete lost article report and return true", async () => {
       baseModelStubs.deleteWhere.resolves({ lastID: 0, changes: 1 });

@@ -16,11 +16,9 @@ import type { NativeSyntheticEvent, TextInput as RNTextInput, TextInputContentSi
 import {
   Animated,
   Keyboard,
-  Platform,
   Pressable,
   View,
 } from "react-native";
-import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { toast } from "@/components/toast";
@@ -37,7 +35,6 @@ import { formatCoordinates } from "@/lib/mapbox";
 
 import {
   AlertTriangle,
-  Calendar,
   Car,
   ChevronRight,
   FilePlus2,
@@ -55,9 +52,7 @@ import {
 type Role = "citizen" | "officer";
 type Witness = {
   id: string;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
+  fullName: string;
   phone: string;
   expanded: boolean;
 };
@@ -182,45 +177,12 @@ export default function ReportIncidents() {
 
   const sanitizeName = (v: string) => v.replace(/\s+/g, " ").trim();
 
-  const toIsoDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
   /** Validate local phone format: 10 digits starting with 0. */
   const isValidPhone = (v: string) => /^0\d{9}$/.test(v);
-
-  const isValidDob = (value: string) => {
-    if (!value) return false;
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return false;
-    const year = Number(match[1]);
-    const month = Number(match[2]) - 1;
-    const day = Number(match[3]);
-    const parsed = new Date(year, month, day);
-    if (Number.isNaN(parsed.getTime())) return false;
-    const today = new Date();
-    parsed.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return toIsoDate(parsed) === value && parsed <= today;
-  };
 
   /** Format phone for display: 000 000 0000. */
   const formatPhoneDisplay = (v: string) =>
     /^0\d{9}$/.test(v) ? v.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : v;
-
-  const formatDobDisplay = (value: string) => {
-    if (!isValidDob(value)) return value;
-    const [year, month, day] = value.split("-").map((part) => Number(part));
-    const date = new Date(year, (month ?? 1) - 1, day ?? 1);
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   // Duplicate phone detection across witnesses
   const phoneCounts = useMemo(() => {
@@ -234,10 +196,7 @@ export default function ReportIncidents() {
   const hasDuplicatePhones = Object.values(phoneCounts).some((c) => c > 1);
 
   const isWitnessComplete = (w: Witness) =>
-    w.firstName.trim().length > 0 &&
-    w.lastName.trim().length > 0 &&
-    isValidDob(w.dateOfBirth) &&
-    isValidPhone(w.phone);
+    w.fullName.trim().length > 0 && isValidPhone(w.phone);
 
   const witnessesValid =
     witnesses.length === 0 ||
@@ -257,11 +216,8 @@ export default function ReportIncidents() {
     try {
       const validatedWitnesses = witnesses.filter(isWitnessComplete);
       const witnessLines = validatedWitnesses.map((w, idx) => {
-        const name = `${w.firstName.trim()} ${w.lastName.trim()}`.trim();
+        const name = w.fullName.trim();
         const parts = [name];
-        if (isValidDob(w.dateOfBirth)) {
-          parts.push(`DOB ${formatDobDisplay(w.dateOfBirth)}`);
-        }
         parts.push(`Phone ${formatPhoneDisplay(w.phone)}`);
         return `Witness ${idx + 1}: ${parts.join(" · ")}`;
       });
@@ -297,9 +253,7 @@ export default function ReportIncidents() {
         await Promise.all(
           validatedWitnesses.map((w) =>
             createReportWitness(reportSummary.id, {
-              firstName: w.firstName.trim(),
-              lastName: w.lastName.trim(),
-              dateOfBirth: w.dateOfBirth,
+              fullName: w.fullName.trim(),
               contactNumber: w.phone,
             })
           )
@@ -516,11 +470,8 @@ export default function ReportIncidents() {
             setWitnesses={setWitnesses}
             nameRefs={nameRefs}
             isValidPhone={isValidPhone}
-            isValidDob={isValidDob}
             formatPhoneDisplay={formatPhoneDisplay}
-            formatDobDisplay={formatDobDisplay}
             sanitizeName={sanitizeName}
-            toIsoDate={toIsoDate}
           />
 
           <Button
@@ -550,55 +501,26 @@ function WitnessSection({
   setWitnesses,
   nameRefs,
   isValidPhone,
-  isValidDob,
   formatPhoneDisplay,
-  formatDobDisplay,
   sanitizeName,
-  toIsoDate,
-}: {
-  witnesses: Witness[];
-  setWitnesses: Dispatch<SetStateAction<Witness[]>>;
-  nameRefs: MutableRefObject<Record<string, RNTextInput | null>>;
-  isValidPhone: (v: string) => boolean;
-  isValidDob: (v: string) => boolean;
-  formatPhoneDisplay: (v: string) => string;
-  formatDobDisplay: (v: string) => string;
-  sanitizeName: (v: string) => string;
-  toIsoDate: (date: Date) => string;
-}) {
+) {
   const sanitizePhone = (v: string) => v.replace(/\D+/g, "").slice(0, 10);
-
-  const parseIsoDate = (value: string) => {
-    const [year, month, day] = value.split("-").map((part) => Number(part));
-    return new Date(year, (month ?? 1) - 1, day ?? 1);
-  };
-
-  const getDobSeed = (value?: string) => {
-    if (value && isValidDob(value)) {
-      return parseIsoDate(value);
-    }
-    const fallback = new Date();
-    fallback.setFullYear(fallback.getFullYear() - 18);
-    fallback.setHours(0, 0, 0, 0);
-    return fallback;
-  };
 
   const phoneCounts = useMemo(() => {
     const map: Record<string, number> = {};
     witnesses.forEach((w) => {
-      if (isValidPhone(w.phone)) map[w.phone] = (map[w.phone] ?? 0) + 1;
+      if (isValidPhone(w.phone)) {
+        map[w.phone] = (map[w.phone] ?? 0) + 1;
+      }
     });
     return map;
   }, [witnesses, isValidPhone]);
-
-  const hasDuplicatePhones = Object.values(phoneCounts).some((c) => c > 1);
-  const [iosDobPicker, setIosDobPicker] = useState<{ id: string; date: Date } | null>(null);
 
   const addWitness = () => {
     const id = Math.random().toString(36).slice(2, 9);
     setWitnesses((prev) => [
       ...prev,
-      { id, firstName: "", lastName: "", dateOfBirth: "", phone: "", expanded: true },
+      { id, fullName: "", phone: "", expanded: true },
     ]);
     setTimeout(() => nameRefs.current[id]?.focus?.(), 60);
   };
@@ -615,65 +537,44 @@ function WitnessSection({
 
   const setWitnessField = (
     id: string,
-    field: "firstName" | "lastName" | "phone" | "dateOfBirth",
+    field: "fullName" | "phone",
     value: string,
   ) =>
     setWitnesses((prev) =>
-      prev.map((w) => {
-        if (w.id !== id) return w;
-        if (field === "phone") {
-          return { ...w, phone: sanitizePhone(value) };
-        }
-        if (field === "dateOfBirth") {
-          return { ...w, dateOfBirth: value };
-        }
-        const cleaned = sanitizeName(value);
-        return field === "firstName"
-          ? { ...w, firstName: cleaned }
-          : { ...w, lastName: cleaned };
-      }),
+      prev.map((w) =>
+        w.id === id
+          ? {
+              ...w,
+              [field]: field === "phone" ? sanitizePhone(value) : value,
+            }
+          : w,
+      ),
     );
 
-  const openDobPicker = (id: string) => {
-    const target = witnesses.find((x) => x.id === id);
-    const seed = getDobSeed(target?.dateOfBirth);
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: seed,
-        mode: "date",
-        maximumDate: new Date(),
-        onChange: (_event: any, selectedDate?: Date) => {
-          if (selectedDate) {
-            setWitnessField(id, "dateOfBirth", toIsoDate(selectedDate));
-          }
-        },
-      });
-    } else {
-      setIosDobPicker({ id, date: seed });
-    }
-  };
-
-  const doneEdit = (id: string) => {
-    const w = witnesses.find((x) => x.id === id);
-    if (!w) return;
-    if (
-      !w.firstName.trim() ||
-      !w.lastName.trim() ||
-      !isValidDob(w.dateOfBirth) ||
-      !isValidPhone(w.phone)
-    )
-      return;
-    toggleExpanded(id, false);
+  const onSaveWitness = (id: string) => {
+    setWitnesses((prev) =>
+      prev.map((w) => {
+        if (w.id !== id) {
+          return w;
+        }
+        const name = sanitizeName(w.fullName);
+        const phone = sanitizePhone(w.phone);
+        const nameOk = name.length > 0;
+        const phoneOk = isValidPhone(phone);
+        return {
+          ...w,
+          fullName: name,
+          phone,
+          expanded: nameOk && phoneOk ? false : true,
+        };
+      }),
+    );
   };
 
   const onCancelEdit = (id: string) => {
-    const w = witnesses.find((x) => x.id === id);
-    if (!w) return;
-    const isEmpty =
-      !w.firstName.trim() &&
-      !w.lastName.trim() &&
-      w.phone.length === 0 &&
-      w.dateOfBirth.length === 0;
+    const target = witnesses.find((x) => x.id === id);
+    if (!target) return;
+    const isEmpty = !target.fullName.trim() && target.phone.length === 0;
     if (isEmpty) removeWitness(id);
     else toggleExpanded(id, false);
   };
@@ -709,13 +610,11 @@ function WitnessSection({
       ) : (
         <View className="gap-3">
           {witnesses.map((w) => {
-            const nameOk = w.firstName.trim().length > 0 && w.lastName.trim().length > 0;
-            const dobOk = isValidDob(w.dateOfBirth);
+            const nameOk = w.fullName.trim().length > 0;
             const phoneOk = isValidPhone(w.phone);
             const duplicate = phoneOk && phoneCounts[w.phone] > 1;
             const errors: string[] = [];
-            if (!nameOk) errors.push("Enter first and last name.");
-            if (!dobOk) errors.push("Select a valid date of birth.");
+            if (!nameOk) errors.push("Enter a full name.");
             if (!phoneOk) errors.push("Enter a valid phone (10 digits starting with 0).");
             if (duplicate) errors.push("This phone duplicates another witness.");
             const showError = w.expanded && errors.length > 0;
@@ -735,13 +634,10 @@ function WitnessSection({
                     <View className="flex-1">
                       <Text className="text-foreground">
                         {nameOk ? (
-                          `${w.firstName.trim()} ${w.lastName.trim()}`
+                          w.fullName.trim()
                         ) : (
                           <Text className="text-muted-foreground">Unnamed</Text>
                         )}
-                      </Text>
-                      <Text className={`mt-0.5 text-xs ${dobOk ? "text-foreground" : "text-muted-foreground"}`}>
-                        DOB: {dobOk ? formatDobDisplay(w.dateOfBirth) : "Add date"}
                       </Text>
                       <Text
                         className={`mt-0.5 text-xs ${
@@ -760,119 +656,81 @@ function WitnessSection({
 
             return (
               <View key={w.id} className="gap-3 rounded-2xl border border-border bg-background p-3">
-                <View className="flex-row gap-3">
-                  <View className="flex-1 gap-1">
-                    <Label nativeID={`wfirst-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
-                      <Text className="text-[11px] text-muted-foreground">First name</Text>
-                    </Label>
-                    <View className="relative">
-                      <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
-                      <Input
-                        ref={(r) => {
-                          nameRefs.current[w.id] = r;
-                        }}
-                        aria-labelledby={`wfirst-${w.id}`}
-                        value={w.firstName}
-                        onChangeText={(t) => setWitnessField(w.id, "firstName", t)}
-                        placeholder="e.g. Jamie"
-                        className="h-12 rounded-2xl bg-background pl-9"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                      />
-                    </View>
-                  </View>
-
-                  <View className="flex-1 gap-1">
-                    <Label nativeID={`wlast-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
-                      <Text className="text-[11px] text-muted-foreground">Last name</Text>
-                    </Label>
-                    <View className="relative">
-                      <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
-                      <Input
-                        aria-labelledby={`wlast-${w.id}`}
-                        value={w.lastName}
-                        onChangeText={(t) => setWitnessField(w.id, "lastName", t)}
-                        placeholder="e.g. Lee"
-                        className="h-12 rounded-2xl bg-background pl-9"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                      />
-                    </View>
+                <View className="gap-1">
+                  <Label nativeID={`wname-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
+                    <Text className="text-[11px] text-muted-foreground">Full name</Text>
+                  </Label>
+                  <View className="relative">
+                    <UserRound size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
+                    <Input
+                      ref={(r) => {
+                        nameRefs.current[w.id] = r;
+                      }}
+                      aria-labelledby={`wname-${w.id}`}
+                      value={w.fullName}
+                      onChangeText={(t) => setWitnessField(w.id, "fullName", t)}
+                      placeholder="e.g. Jamie Lee"
+                      className="h-12 rounded-2xl bg-background pl-9"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                    />
                   </View>
                 </View>
 
-                <View className="flex-row gap-3">
-                  <View className="flex-1 gap-1">
-                    <Label nativeID={`wdob-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
-                      <Text className="text-[11px] text-muted-foreground">Date of birth</Text>
-                    </Label>
-                    <Pressable
-                      onPress={() => openDobPicker(w.id)}
-                      className="relative"
-                      accessibilityRole="button"
-                      android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: false }}
-                    >
-                      <Calendar size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
-                      <Input
-                        aria-labelledby={`wdob-${w.id}`}
-                        value={w.dateOfBirth ? formatDobDisplay(w.dateOfBirth) : ""}
-                        placeholder="Select date"
-                        editable={false}
-                        className={`h-12 rounded-2xl bg-background pl-9 pr-3 ${
-                          showError && !dobOk ? "border border-destructive text-destructive" : ""
-                        }`}
-                      />
-                    </Pressable>
-                  </View>
-
-                  <View className="flex-1 gap-1">
-                    <Label nativeID={`wphone-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
-                      <Text className="text-[11px] text-muted-foreground">Phone</Text>
-                    </Label>
-                    <View className="relative">
-                      <Phone size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
-                      <Input
-                        aria-labelledby={`wphone-${w.id}`}
-                        value={w.phone}
-                        onChangeText={(t) => setWitnessField(w.id, "phone", t)}
-                        placeholder="e.g. 0714404243"
-                        keyboardType="phone-pad"
-                        autoComplete="tel"
-                        className="h-12 rounded-2xl bg-background pl-9 pr-10"
-                        maxLength={10}
-                      />
-                      <Pressable
-                        onPress={() => removeWitness(w.id)}
-                        className="absolute right-1 top-1 h-10 w-10 items-center justify-center rounded-full"
-                        android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: true }}
-                      >
-                        <Trash2 size={16} color="#0F172A" />
-                      </Pressable>
-                    </View>
+                <View className="gap-1">
+                  <Label nativeID={`wphone-${w.id}`} className="text-[11px] font-medium text-muted-foreground">
+                    <Text className="text-[11px] text-muted-foreground">Contact number</Text>
+                  </Label>
+                  <View className="relative">
+                    <Phone size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: 14 }} />
+                    <Input
+                      aria-labelledby={`wphone-${w.id}`}
+                      value={w.phone}
+                      onChangeText={(t) => setWitnessField(w.id, "phone", t)}
+                      placeholder="e.g. 0712345678"
+                      keyboardType="phone-pad"
+                      className="h-12 rounded-2xl bg-background pl-9"
+                    />
                   </View>
                 </View>
 
                 {showError ? (
-                  <View className="mt-1 gap-1">
-                    {errors.map((msg) => (
-                      <Text key={msg} className="text-[11px] text-destructive">
-                        {msg}
+                  <View className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+                    {errors.map((err) => (
+                      <Text key={err} className="text-[11px] text-destructive">
+                        {err}
                       </Text>
                     ))}
                   </View>
-                ) : (
-                  <View className="mt-1 gap-1">
-                    <Text className="text-[11px] text-muted-foreground">DOB format: YYYY-MM-DD</Text>
-                    <Text className="text-[11px] text-muted-foreground">Phone format: 0XXXXXXXXX</Text>
-                  </View>
-                )}
+                ) : null}
 
-                <View className="flex-row items-center justify-between">
-                  <Button variant="link" onPress={() => onCancelEdit(w.id)} className="h-auto p-0">
-                    <Text className="text-[12px] text-muted-foreground">Cancel</Text>
+                <View className="flex-row flex-wrap items-center justify-end gap-2">
+                  <Button
+                    size="sm"
+                    onPress={() => onSaveWitness(w.id)}
+                    className="h-9 rounded-lg px-3"
+                    disabled={errors.length > 0}
+                  >
+                    <Text className="text-[12px] font-medium text-primary-foreground">Save witness</Text>
                   </Button>
-                  <Button size="sm" onPress={() => doneEdit(w.id)} className="h-9 rounded-lg px-3">
-                    <Text className="text-primary-foreground">Done</Text>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => onCancelEdit(w.id)}
+                    className="h-9 rounded-lg px-3"
+                  >
+                    <Text className="text-[12px] text-foreground">Cancel</Text>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => removeWitness(w.id)}
+                    className="h-9 rounded-lg px-2"
+                  >
+                    <View className="flex-row items-center gap-1">
+                      <Trash2 size={14} color="#EF4444" />
+                      <Text className="text-[12px] text-destructive">Remove</Text>
+                    </View>
                   </Button>
                 </View>
               </View>
@@ -880,41 +738,6 @@ function WitnessSection({
           })}
         </View>
       )}
-
-      <View className="gap-1">
-        {witnesses.length >= 5 ? (
-          <Text className="text-[11px] text-muted-foreground">You can add up to 5 witnesses.</Text>
-        ) : null}
-        {hasDuplicatePhones ? (
-          <Text className="text-[11px] text-destructive">Duplicate witness phones detected.</Text>
-        ) : null}
-      </View>
-
-      {Platform.OS === "ios" && iosDobPicker ? (
-        <View className="rounded-2xl border border-border bg-background p-3">
-          <DateTimePicker
-            value={iosDobPicker.date}
-            mode="date"
-            display="spinner"
-            maximumDate={new Date()}
-            onChange={(event: any, selectedDate?: Date) => {
-              if (selectedDate) {
-                setIosDobPicker({ id: iosDobPicker.id, date: selectedDate });
-                setWitnessField(iosDobPicker.id, "dateOfBirth", toIsoDate(selectedDate));
-              }
-              if (event?.type === "dismissed") {
-                setIosDobPicker(null);
-              }
-            }}
-            style={{ alignSelf: "stretch" }}
-          />
-          <View className="flex-row justify-end mt-2">
-            <Button variant="secondary" className="h-9 rounded-lg px-3" onPress={() => setIosDobPicker(null)}>
-              <Text className="text-[12px] text-foreground">Done</Text>
-            </Button>
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 }
