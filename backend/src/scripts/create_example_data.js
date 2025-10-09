@@ -8,7 +8,31 @@ const NoteModel = require("../models/note.model");
 const PersonalDetailsModel = require("../models/personal-details.model");
 const AlertModel = require("../models/alert.model");
 
-recreateDatabase();
+async function resetDatabase() {
+  await recreateDatabase();
+
+  const models = [
+    UserModel,
+    ReportModel,
+    ReportImagesModel,
+    LostItemModel,
+    NoteModel,
+    PersonalDetailsModel,
+    AlertModel,
+  ];
+
+  await Promise.all(
+    models.map(async (model) => {
+      if (model.initialized) {
+        model.initialized = false;
+      }
+
+      if (typeof model.initialize === "function") {
+        await model.initialize();
+      }
+    }),
+  );
+}
 
 const failures = {
   [UserModel.table]: 0,
@@ -377,7 +401,15 @@ async function createOfficers() {
 }
 
 function findUserByUsername(users, username) {
-  return users.find((user) => user.username === username) ?? users[0];
+  const user = users.find((candidate) => candidate.username === username);
+
+  if (!user) {
+    throw new Error(
+      `Unable to locate user "${username}" while generating example data. Did user creation fail?`,
+    );
+  }
+
+  return user;
 }
 
 async function createReports(users) {
@@ -528,6 +560,7 @@ async function createAlerts() {
 }
 
 async function run() {
+  await resetDatabase();
   const users = await createUsers();
   await createOfficers();
   const reports = await createReports(users);
@@ -542,4 +575,7 @@ async function run() {
   console.table(failures);
 }
 
-run();
+run().catch((error) => {
+  console.error("Example data generation failed", error);
+  process.exitCode = 1;
+});

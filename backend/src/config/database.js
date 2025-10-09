@@ -1,5 +1,4 @@
 const sqlite3 = require("sqlite3").verbose();
-const { promisify } = require("node:util");
 const { join } = require("node:path");
 const { rmSync } = require("node:fs");
 
@@ -9,27 +8,86 @@ const databasePath =
     : join(process.cwd(), "data", "main.db");
 let database = new sqlite3.Database(databasePath);
 
-function recreateDatabase() {
+async function recreateDatabase() {
   if (process.env.NODE_ENV === "test") return;
+
+  await new Promise((resolve) => {
+    database.close(() => {
+      resolve();
+    });
+  });
+
   try {
-    rmSync(databasePath);
+    rmSync(databasePath, { force: true });
   } catch {}
-  database = new sqlite3.Database(databasePath);
+
+  database = await new Promise((resolve, reject) => {
+    const nextDatabase = new sqlite3.Database(databasePath, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(nextDatabase);
+    });
+  });
 }
 
 const run = (sql, params) => {
   return new Promise((resolve, reject) => {
-    database.run(sql, params, function (err) {
+    const callback = function (err) {
       if (err) {
         reject(err);
       } else {
         resolve(this);
       }
-    });
+    };
+
+    if (params === undefined) {
+      database.run(sql, callback);
+      return;
+    }
+
+    database.run(sql, params, callback);
   });
 };
-const get = promisify(database.get.bind(database));
-const all = promisify(database.all.bind(database));
+
+const get = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    const callback = (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    };
+
+    if (params === undefined) {
+      database.get(sql, callback);
+      return;
+    }
+
+    database.get(sql, params, callback);
+  });
+};
+
+const all = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    const callback = (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    };
+
+    if (params === undefined) {
+      database.all(sql, callback);
+      return;
+    }
+
+    database.all(sql, params, callback);
+  });
+};
 
 let transactionQueue = Promise.resolve();
 
