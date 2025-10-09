@@ -190,7 +190,10 @@ export default function LostFoundView() {
   const canAddNotes = role === "officer" && (section === "searching" || section === "returned");
 
   const saveEdit = async () => {
-    if (!item) return;
+    if (!item || type !== "lost") {
+      setEditing(false);
+      return;
+    }
     setSaving(true);
     try {
       const payload: Partial<LostItemUpdatePayload> = {};
@@ -391,7 +394,7 @@ export default function LostFoundView() {
         </Animated.View>
 
         {/* Citizen edit */}
-        {role === "citizen" ? (
+        {role === "citizen" && type === "lost" ? (
           <View className="flex-row flex-wrap items-center gap-2 mt-4">
             {editing ? (
               <>
