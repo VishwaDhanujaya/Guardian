@@ -190,15 +190,13 @@ describe("ReportsController", () => {
   describe("createWitness", () => {
     it("should add a witness to a report", async () => {
       const witness = new PersonalDetailsModel(
-        "John",
-        "Smith",
-        "2000-12-12",
+        "Jamie Fox",
+        null,
+        null,
         "07432786432",
       );
       req.body = {
-        first_name: witness.first_name,
-        last_name: witness.last_name,
-        date_of_birth: witness.date_of_birth,
+        full_name: witness.first_name,
         contact_number: witness.contact_number,
       };
       const witnessPromise = Promise.resolve(witness);
@@ -227,8 +225,8 @@ describe("ReportsController", () => {
 
     it("should throw if user lacks the permissions to edit a report", async () => {
       req.body = {
-        first_name: "",
-        last_name: "",
+        full_name: "",
+        contact_number: "",
       };
       req.params = {
         id: 1,
@@ -246,8 +244,8 @@ describe("ReportsController", () => {
 
     it("should propagate errors", async () => {
       req.body = {
-        first_name: "",
-        last_name: "",
+        full_name: "",
+        contact_number: "",
       };
       req.params = {
         id: 1,

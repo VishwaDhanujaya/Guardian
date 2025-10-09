@@ -106,9 +106,19 @@ class LostArticleService {
 
     const lostArticle = await LostItemModel.findById(id);
 
-    if (lostArticle && lostArticle.user_id === user_id) {
+    if (!lostArticle) {
+      return false;
+    }
+
+    if (lostArticle.status === "FOUND") {
+      return false;
+    }
+
+    if (lostArticle.user_id === user_id) {
       return true;
     }
+
+    return false;
   }
 
   async updateById(id, body, user_id, is_officer = false) {

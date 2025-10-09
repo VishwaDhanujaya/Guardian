@@ -73,6 +73,31 @@ describe("PersonalDetailsService", function () {
     });
   });
 
+  describe("createReportWitness", () => {
+    it("should create a witness with a full name and contact number", async () => {
+      const witness = await personalDetailsService.createReportWitness(
+        { full_name: "  Jamie Fox  ", contact_number: " 0712345678 " },
+        9,
+      );
+
+      expect(witness.first_name).to.equal("Jamie Fox");
+      expect(witness.last_name).to.be.null;
+      expect(witness.date_of_birth).to.be.null;
+      expect(witness.contact_number).to.equal("0712345678");
+      expect(witness.report_id).to.equal(9);
+      expect(baseModelStubs.save).to.have.been.calledOnce;
+    });
+
+    it("should reject when full name or contact number missing", async () => {
+      await expect(
+        personalDetailsService.createReportWitness(
+          { full_name: "", contact_number: "" },
+          1,
+        ),
+      ).to.be.rejected;
+    });
+  });
+
   describe("deleteReportWitness", () => {
     it("should delete witness and return true", async () => {
       baseModelStubs.deleteWhere.resolves({ lastID: 0, changes: 1 });

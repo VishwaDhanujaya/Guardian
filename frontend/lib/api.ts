@@ -422,26 +422,20 @@ export type ReportPhoto = {
 };
 
 export type ReportWitnessPayload = {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
+  fullName: string;
   contactNumber: string;
 };
 
 export type ReportWitness = {
   id: string;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
+  fullName: string;
   contactNumber: string;
 };
 
 function mapReportWitness(data: any): ReportWitness {
   return {
     id: toStringId(data?.id),
-    firstName: data?.first_name ?? "",
-    lastName: data?.last_name ?? "",
-    dateOfBirth: data?.date_of_birth ?? "",
+    fullName: data?.first_name ?? "",
     contactNumber: data?.contact_number ?? "",
   };
 }
@@ -510,9 +504,7 @@ export async function createReportWitness(
   payload: ReportWitnessPayload,
 ): Promise<ReportWitness> {
   const body = {
-    first_name: payload.firstName,
-    last_name: payload.lastName,
-    date_of_birth: payload.dateOfBirth,
+    full_name: payload.fullName,
     contact_number: payload.contactNumber,
   };
 
