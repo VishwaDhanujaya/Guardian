@@ -4,9 +4,11 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type FC,
 import {
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   View,
   type ViewStyle,
   useWindowDimensions,
@@ -36,7 +38,8 @@ import {
 import { cn } from '@/lib/utils';
 import { AuthContext } from '@/context/AuthContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { WebView } from 'react-native-webview';
+import { Input } from '@/components/ui/input';
+import { apiService } from '@/services/apiService';
 
 
 import {
@@ -51,6 +54,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MessageSquare,
+  Send,
   PackageSearch,
   Shield,
   ShieldPlus,
@@ -279,16 +283,7 @@ export default function Home() {
 
   // Chatbot (citizen only)
   const [chatOpen, setChatOpen] = useState(false);
-  const kommunicateAppId = useMemo(() => {
-    const candidates = [
-      process.env.EXPO_PUBLIC_KOMMUNICATE_APP_ID,
-      process.env.EXPO_PUBLIC_COMMUNICATE_APP_ID,
-      '1bc1af724f54a2ea777cb03d818d6a3a0',
-    ];
-    const match = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
-    return match?.trim();
-  }, []);
-  const kommunicateUser = useMemo(() => {
+  const chatbotUser = useMemo(() => {
     if (!profile) return undefined;
     const normalise = (val?: string) => {
       if (typeof val !== 'string') return undefined;
@@ -417,8 +412,7 @@ export default function Home() {
           <ChatbotWidget
             open={chatOpen}
             onToggle={() => setChatOpen((v) => !v)}
-            appId={kommunicateAppId}
-            user={kommunicateUser}
+            user={chatbotUser}
           />
         ) : undefined
       }
@@ -1048,81 +1042,143 @@ const Timeline: FC<{
   );
 };
 
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  pending?: boolean;
+};
+
+type DialogflowResponse = {
+  intent: string | null;
+  confidence: number;
+  text?: string;
+  sessionId?: string;
+};
+
 /** Floating chatbot widget (citizen only). */
 const ChatbotWidget: FC<{
   open: boolean;
   onToggle: () => void;
-  appId?: string;
   user?: { id?: string; name?: string; email?: string };
-}> = ({ open, onToggle, appId, user }) => {
+}> = ({ open, onToggle, user }) => {
   const { width: screenWidth } = useWindowDimensions();
   const contentWidth = Math.max(screenWidth - 40, 0);
   const desiredWidth = Math.max(280, screenWidth - 48);
   const cardWidth = contentWidth > 0 ? Math.min(420, desiredWidth, contentWidth) : Math.min(420, desiredWidth);
-  const kommunicateSettings = useMemo(() => {
-    if (!appId) return null;
-    const settings: Record<string, unknown> = {
-      appId,
-      popupWidget: false,
-      automaticChatOpenOnNavigation: true,
-      launchWidgetOnLoad: true,
-    };
-    if (user?.id) settings.userId = user.id;
-    if (user?.name) settings.userName = user.name;
-    if (user?.email) settings.email = user.email;
-    return settings;
-  }, [appId, user?.email, user?.id, user?.name]);
-  const kommunicateHtml = useMemo(() => {
-    if (!kommunicateSettings) return null;
-    const settingsJson = JSON.stringify({
-      ...kommunicateSettings,
-      widgetContainer: 'kommunicate-widget-container',
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [sending, setSending] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const welcomeMessage = useMemo(() => {
+    const firstName = user?.name?.split(/\s+/)[0]?.trim();
+    if (firstName && firstName.length > 0) {
+      return `Hi ${firstName}, I'm the Guardian assistant. How can I help you today?`;
+    }
+    return "Hi! I'm the Guardian assistant. How can I help you today?";
+  }, [user?.name]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    { id: 'welcome', role: 'assistant', text: welcomeMessage },
+  ]);
+  const [sessionId, setSessionId] = useState<string | undefined>(() => user?.id ?? undefined);
+
+  useEffect(() => {
+    if (hasInteracted) return;
+    setMessages((prev) => {
+      if (!prev.length) {
+        return [{ id: 'welcome', role: 'assistant', text: welcomeMessage }];
+      }
+      if (prev[0]?.id === 'welcome') {
+        return [{ ...prev[0], text: welcomeMessage }, ...prev.slice(1)];
+      }
+      return prev;
     });
-    return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>
-        html, body { height: 100%; margin: 0; padding: 0; background: transparent; }
-        #kommunicate-widget-container { height: 100%; }
-        #kommunicate-widget-container iframe, .mck-sidebox, .km-conversation-wrapper { height: 100% !important; }
-        .km-chat-widget-wrapper { height: 100% !important; max-height: none !important; }
-      </style>
-    </head><body>
-      <div id="kommunicate-widget-container"></div>
-      <script>
-        (function(d, m){
-          var kommunicateSettings = ${settingsJson};
-          var s = document.createElement("script"); s.type = "text/javascript"; s.async = true;
-          s.src = "https://widget.kommunicate.io/v2/kommunicate.app";
-          s.onload = function(){
-            const api = window.Kommunicate || window.kommunicate;
-            if (api && typeof api.displayKommunicateWidget === "function") {
-              api.displayKommunicateWidget();
-            } else if (api && typeof api.display === "function") {
-              api.display();
-            }
-            if (api && typeof api.launchConversation === "function") {
-              api.launchConversation();
-            }
-          };
-          var h = document.getElementsByTagName("head")[0]; h.appendChild(s);
-          window.kommunicate = m; m._globals = kommunicateSettings;
-          function ensureConversation(){
-            const api = window.Kommunicate || window.kommunicate;
-            if (api && typeof api.launchConversation === "function") {
-              if (typeof api.displayKommunicateWidget === "function") {
-                api.displayKommunicateWidget();
-              } else if (typeof api.display === "function") {
-                api.display();
-              }
-              api.launchConversation();
-            } else {
-              setTimeout(ensureConversation, 400);
-            }
-          }
-          ensureConversation();
-        })(document, window.kommunicate || {});
-      </script>
-    </body></html>`;
-  }, [kommunicateSettings]);
+  }, [welcomeMessage, hasInteracted]);
+
+  useEffect(() => {
+    if (hasInteracted) return;
+    setSessionId(user?.id ?? undefined);
+  }, [user?.id, hasInteracted]);
+
+  const languageCode = useMemo(() => {
+    try {
+      const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? 'en';
+      const [lang] = locale.split('-');
+      return lang || 'en';
+    } catch {
+      return 'en';
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [messages, open]);
+
+  const handleSend = useCallback(async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || sending) return;
+
+    setHasInteracted(true);
+    setInputValue('');
+    setErrorMessage(null);
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      text: trimmed,
+    };
+    const pendingId = `assistant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const pendingMessage: ChatMessage = { id: pendingId, role: 'assistant', text: '', pending: true };
+    const resolvedSession = sessionId ?? user?.id ?? undefined;
+    setMessages((prev) => [...prev, userMessage, pendingMessage]);
+
+    const payload: { text: string; languageCode: string; sessionId?: string } = {
+      text: trimmed,
+      languageCode,
+    };
+    if (resolvedSession) {
+      payload.sessionId = resolvedSession;
+    }
+
+    try {
+      setSending(true);
+      const response = await apiService.post<{ status: string; data: DialogflowResponse; message: string }>(
+        '/api/v1/dialogflow/chat',
+        payload,
+      );
+      const data = response.data?.data ?? {};
+      const replyText = data.text && data.text.trim().length > 0
+        ? data.text.trim()
+        : "I'm still learning how to help with that. Please try asking in a different way.";
+
+      setSessionId(data.sessionId ?? resolvedSession);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === pendingId
+            ? { ...message, pending: false, text: replyText }
+            : message,
+        ),
+      );
+    } catch (error: any) {
+      const fallbackMessage = error?.response?.data?.message ?? 'I ran into a problem connecting. Please try again in a moment.';
+      setErrorMessage(fallbackMessage);
+      toast.error(fallbackMessage);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === pendingId
+            ? { ...message, pending: false, text: fallbackMessage }
+            : message,
+        ),
+      );
+    } finally {
+      setSending(false);
+    }
+  }, [inputValue, sending, languageCode, sessionId, user?.id]);
 
   if (!open) {
     return (
@@ -1159,44 +1215,89 @@ const ChatbotWidget: FC<{
     </View>
   );
 
-  if (!appId) {
-    return (
-      <AppCard className="max-w-full gap-5 p-6" style={{ width: cardWidth, alignSelf: 'flex-end' }}>
-        {header}
-        <View className="gap-3 rounded-3xl bg-muted p-5">
-          <Text className="text-base font-semibold text-foreground">Chat unavailable</Text>
-          <Text className="text-sm leading-relaxed text-muted-foreground">
-            Add EXPO_PUBLIC_KOMMUNICATE_APP_ID (or EXPO_PUBLIC_COMMUNICATE_APP_ID) to your Expo scripts to enable the Guardian assistant.
-          </Text>
-        </View>
-      </AppCard>
-    );
-  }
-
   return (
     <AppCard className="max-w-full gap-5 p-6" style={{ width: cardWidth, alignSelf: 'flex-end' }}>
       {header}
-      <View className="h-[420px] overflow-hidden rounded-3xl bg-muted">
-        {kommunicateHtml ? (
-          <WebView
-            originWhitelist={['*']}
-            source={{ html: kommunicateHtml }}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState
-            renderLoading={() => (
-              <View className="flex-1 items-center justify-center bg-muted">
-                <ActivityIndicator size="small" color="#0F172A" />
-              </View>
-            )}
-            style={{ backgroundColor: 'transparent' }}
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center bg-muted">
-            <ActivityIndicator size="small" color="#0F172A" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+        style={{ width: '100%' }}
+      >
+        <View className="h-[420px] overflow-hidden rounded-3xl bg-muted">
+          <ScrollView
+            ref={scrollRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.map((message, index) => {
+              const isUser = message.role === 'user';
+              return (
+                <View
+                  key={message.id}
+                  className={cn('flex-row', isUser ? 'justify-end' : 'justify-start')}
+                  style={{ marginBottom: index === messages.length - 1 ? 4 : 12 }}
+                >
+                  <View
+                    className={cn(
+                      'max-w-[88%] rounded-2xl px-4 py-3 shadow-sm shadow-black/5',
+                      isUser ? 'bg-primary' : 'bg-white',
+                      message.pending && 'opacity-90',
+                    )}
+                  >
+                    {message.pending ? (
+                      <View className="flex-row items-center gap-2">
+                        <ActivityIndicator size="small" color={isUser ? '#FFFFFF' : '#0F172A'} />
+                        <Text className={cn('text-xs', isUser ? 'text-primary-foreground/90' : 'text-muted-foreground')}>
+                          Assistant is typing…
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        className={cn(
+                          'text-sm leading-relaxed',
+                          isUser ? 'text-primary-foreground' : 'text-foreground',
+                        )}
+                      >
+                        {message.text}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+          <View className="border-t border-muted-foreground/20 bg-muted px-4 pb-4 pt-3">
+            {errorMessage ? (
+              <Text className="mb-2 text-xs text-destructive" accessibilityLiveRegion="polite">
+                {errorMessage}
+              </Text>
+            ) : null}
+            <View className="flex-row items-center gap-2">
+              <Input
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="Ask the Guardian assistant…"
+                editable={!sending}
+                returnKeyType="send"
+                onSubmitEditing={() => handleSend()}
+                blurOnSubmit={false}
+                className="flex-1 bg-white text-sm"
+                accessibilityLabel="Message the Guardian assistant"
+              />
+              <Button
+                onPress={handleSend}
+                disabled={sending || inputValue.trim().length === 0}
+                size="icon"
+                className="h-11 w-11 items-center justify-center rounded-full bg-primary shadow-sm shadow-black/10"
+                accessibilityLabel="Send message"
+              >
+                {sending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Send size={18} color="#FFFFFF" />}
+              </Button>
+            </View>
           </View>
-        )}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </AppCard>
   );
 };
