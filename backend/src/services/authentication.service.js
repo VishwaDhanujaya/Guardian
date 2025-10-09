@@ -161,12 +161,15 @@ class AuthenticationService {
       return null;
     }
 
+    const expiresAtDate =
+      expires_at instanceof Date ? expires_at : new Date(expires_at * 1000);
+
     return await new JwtModel(
       user_id,
       session_id,
       token,
       type,
-      new Date(expires_at * 1000),
+      expiresAtDate,
     ).save();
   }
 
