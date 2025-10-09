@@ -4,7 +4,7 @@ const BaseModel = require("./base.model");
 class UserModel extends BaseModel {
   static table = "users";
   static schema = `CREATE TABLE IF NOT EXISTS ${this.table}
-      (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, email TEXT UNIQUE, 
+      (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, email TEXT,
         password TEXT, first_name TEXT, last_name TEXT,
         is_officer INTEGER, emailed_confirmed INTEGER DEFAULT 0, 
         mfa_required INTEGER DEFAULT 0, last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
