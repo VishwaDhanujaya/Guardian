@@ -1,5 +1,4 @@
 const {
-  MFA_CUTOFF_TIMESTAMP,
   MFA_ACCESS_TOKEN_WINDOW_SECONDS,
   MFA_RESEND_ALLOW_AFTER_MS,
 } = require("src/constants/mfa");
@@ -20,13 +19,20 @@ class MFAService {
       return false;
     }
 
-    if (!user.email || user.email === "") {
+    const hasDeliverableEmail = Boolean(user.email && user.email.trim() !== "");
+    if (!hasDeliverableEmail) {
       return false;
     }
 
-    const lastSeenMs = new Date(`${user.last_seen_at} UTC`).getTime();
+    const roleFlag = Number(user.is_officer);
+    const isCitizen = roleFlag === 0;
+    const isOfficer = roleFlag === 1;
 
-    return lastSeenMs < MFA_CUTOFF_TIMESTAMP();
+    if (!isCitizen && !isOfficer) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
