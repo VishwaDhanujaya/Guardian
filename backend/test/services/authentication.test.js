@@ -222,6 +222,22 @@ describe("AuthenticationService", function () {
       expect(jwtSaved.jwt).to.be.equal(token);
     });
 
+    it("should accept Date instances for expires_at", async () => {
+      const token = jwt.sign({ sub: 1 }, "fakesecret");
+      const expiry = new Date("2025-01-01T00:00:00.000Z");
+
+      const jwtSaved = await authenticationService.saveToken(
+        1,
+        "xxx-xxx",
+        token,
+        "access",
+        expiry,
+      );
+
+      expect(jwtSaved).to.be.instanceOf(JwtModel);
+      expect(jwtSaved.expires_at).to.equal(expiry);
+    });
+
     it("should return null when missing any arugment", async () => {
       const jwtSaved = await authenticationService.saveToken(1, 5000);
 
