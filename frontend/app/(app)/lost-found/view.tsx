@@ -189,8 +189,16 @@ export default function LostFoundView() {
   const canUpdateStatus = role === "officer" && section === "searching";
   const canAddNotes = role === "officer" && (section === "searching" || section === "returned");
 
+  const canCitizenEdit = role === "citizen" && type === "lost";
+
+  useEffect(() => {
+    if (!canCitizenEdit && editing) {
+      setEditing(false);
+    }
+  }, [canCitizenEdit, editing]);
+
   const saveEdit = async () => {
-    if (!item) return;
+    if (!item || !canCitizenEdit) return;
     setSaving(true);
     try {
       const payload: Partial<LostItemUpdatePayload> = {};
@@ -237,7 +245,7 @@ export default function LostFoundView() {
   };
 
   const cancelEdit = () => {
-    if (!item) return;
+    if (!item || !canCitizenEdit) return;
     setDraft({
       name: item.name ?? "",
       description: item.description ?? "",
@@ -391,7 +399,7 @@ export default function LostFoundView() {
         </Animated.View>
 
         {/* Citizen edit */}
-        {role === "citizen" ? (
+        {canCitizenEdit ? (
           <View className="flex-row flex-wrap items-center gap-2 mt-4">
             {editing ? (
               <>
