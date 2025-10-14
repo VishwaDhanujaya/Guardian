@@ -36,11 +36,16 @@ npm run model:train
 # Start the development server
 npm run dev
 
-# Start the frontend server
-npx cross-env EXPO_PUBLIC_API_URL=http://192.168.56.1:2699 expo start -c
+# Start the frontend server (runs from /frontend)
+npm run dev
 
 # Generate mock data
 npm run script:generateExampleData
 ```
 
 You can then visit `localhost:2699/api-docs` and view all available endpoints
+
+> **Note:** The frontend startup script automatically detects your machine's
+> local IP address and shares it with Expo so phones on the same network can
+> reach the backend. Override the detection with `GUARDIAN_API_HOST` or supply
+> a full URL via `EXPO_PUBLIC_API_URL` if needed.

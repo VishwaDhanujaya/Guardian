@@ -3,11 +3,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
-    "dev": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c",
-    "android": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --android",
-    "ios": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --ios",
-    "web": "cross-env EXPO_PUBLIC_API_URL=http://localhost:2699 expo start -c --web",
+    "start": "node ./scripts/start.js",
+    "dev": "node ./scripts/start.js",
+    "android": "node ./scripts/start.js --android",
+    "ios": "node ./scripts/start.js --ios",
+    "web": "node ./scripts/start.js --web",
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
