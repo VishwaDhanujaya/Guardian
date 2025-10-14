@@ -36,11 +36,18 @@ describe("FilesController", () => {
 
       const getFileNameStub = sinon
         .stub(filesService, "getFileNameFromToken")
-        .returns(resolve("uploads/"));
+        .returns({ filePath: resolve("uploads/"), actorId: 10 });
+      const recordDownloadStub = sinon
+        .stub(filesService, "recordDownload")
+        .resolves();
 
       await filesController.get(req, res);
 
       expect(getFileNameStub).to.be.calledOnceWithExactly("exampletoken");
+      expect(recordDownloadStub).to.have.been.calledWith(
+        resolve("uploads/"),
+        10,
+      );
     });
 
     it("should propagate errors", async () => {

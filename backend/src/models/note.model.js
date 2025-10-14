@@ -4,6 +4,7 @@ class NoteModel extends BaseModel {
   static table = "notes";
   static schema =
     `CREATE TABLE IF NOT EXISTS ${this.table} (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT, content TEXT, resource_id INTEGER, resource_type INTEGER, created_at DEFAULT current_date)`;
+  static encryptedFields = ["subject", "content"];
 
   subject;
   content;

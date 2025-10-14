@@ -3,6 +3,8 @@ const LostItemModel = require("../models/lost-item.model");
 const ReportImagesModel = require("../models/report-images.model");
 const personalDetailsService = require("./personal-details.service");
 const HttpError = require("../utils/http-error");
+const filesService = require("./files.service");
+const auditService = require("./audit.service");
 
 class LostArticleService {
   articleValidation = z.object({
@@ -48,10 +50,17 @@ class LostArticleService {
     );
 
     await lostArticle.save();
+    await auditService.recordIncidentEvent({
+      actorId: user_id,
+      incidentId: lostArticle.id,
+      action: "lost_article_create",
+    });
 
     if (Array.isArray(files) && files.length > 0) {
       for (const file of files) {
-        new ReportImagesModel(lostArticle.id, file.path).save();
+        await filesService.sanitizeImage(file.path);
+        await filesService.recordUpload(file.path, user_id);
+        await new ReportImagesModel(lostArticle.id, file.path).save();
       }
     }
 
@@ -173,7 +182,14 @@ class LostArticleService {
       lostArticle.branch = updateBody.branch;
     }
 
-    return await lostArticle.save();
+    const saved = await lostArticle.save();
+    await auditService.recordIncidentEvent({
+      actorId: user_id,
+      incidentId: lostArticle.id,
+      action: "lost_article_update",
+      metadata: updateBody,
+    });
+    return saved;
   }
 
   async updateStatus(id, status, user_id, is_officer = false) {
@@ -211,6 +227,13 @@ class LostArticleService {
     }
 
     const result = await LostItemModel.deleteWhere("id", numericId);
+
+    if (result?.changes) {
+      await auditService.recordIncidentEvent({
+        incidentId: numericId,
+        action: "lost_article_delete",
+      });
+    }
 
     return result?.changes !== 0;
   }

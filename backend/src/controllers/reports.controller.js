@@ -20,7 +20,7 @@ class ReportsController {
    */
   async getById(req, res) {
     const id = req.params.id;
-    const report = await reportsService.getById(id);
+    const report = await reportsService.getById(id, req.user);
 
     if (!report) {
       return new HttpResponse(404).sendStatus(res);
@@ -94,7 +94,7 @@ class ReportsController {
     if (!req.officer) {
       throw new HttpError({ code: 401 });
     }
-    const report = await reportsService.updateStatus(id, req.body);
+    const report = await reportsService.updateStatus(id, req.body, req.user);
     return new HttpResponse(200, report).json(res);
   }
 
@@ -107,7 +107,7 @@ class ReportsController {
     if (!req.officer) {
       throw new HttpError({ code: 401 });
     }
-    await reportsService.delete(id);
+    await reportsService.delete(id, req.user);
     return new HttpResponse(204).sendStatus(res);
   }
 }

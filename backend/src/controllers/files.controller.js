@@ -1,5 +1,6 @@
 const filesService = require("../services/files.service");
 const { resolve } = require("node:path");
+const HttpError = require("../utils/http-error");
 
 class FilesController {
   /**
@@ -8,7 +9,13 @@ class FilesController {
    */
   async get(req, res) {
     const { token } = req.query;
-    const filePath = filesService.getFileNameFromToken(token);
+
+    if (!token || typeof token !== "string") {
+      throw new HttpError({ code: 400, clientMessage: "Signed token required" });
+    }
+
+    const { filePath, actorId } = filesService.getFileNameFromToken(token);
+    await filesService.recordDownload(filePath, actorId);
     res.sendFile(resolve(filePath));
   }
 }

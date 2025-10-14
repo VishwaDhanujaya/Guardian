@@ -10,6 +10,8 @@ const PersonalDetailsModel = require("../../src/models/personal-details.model");
 const UserModel = require("../../src/models/user.model");
 const database = require("../../src/config/database");
 const textPriority = require("src/utils/local_priority_model");
+const filesService = require("../../src/services/files.service");
+const auditService = require("../../src/services/audit.service");
 const sinonChai = require("sinon-chai").default;
 const chaiAsPromised = require("chai-as-promised").default;
 chai.use(sinonChai);
@@ -42,6 +44,11 @@ describe("ReportsService", () => {
   beforeEach(() => {
     sinon.stub(textPriority, "getTextPriority").resolves(1);
     baseModelStubs = setupBaseModelStubs();
+
+    sinon.stub(filesService, "sanitizeImage").resolves();
+    sinon.stub(filesService, "recordUpload").resolves();
+    sinon.stub(filesService, "generateFileToken").returns("signed-token");
+    sinon.stub(auditService, "recordIncidentEvent").resolves();
 
     sinon.stub(database, "withTransaction").callsFake(async (cb) => {
       return await cb();

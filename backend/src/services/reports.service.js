@@ -9,6 +9,7 @@ const UserModel = require("../models/user.model");
 
 const personalDetailsService = require("./personal-details.service");
 const filesService = require("./files.service");
+const auditService = require("./audit.service");
 
 class ReportsService {
   ReportValidation = z.object({
@@ -37,10 +38,17 @@ class ReportsService {
       );
 
       await report.save();
+      await auditService.recordIncidentEvent({
+        actorId: user_id,
+        incidentId: report.id,
+        action: "create",
+      });
 
       if (Array.isArray(files) && files.length > 0) {
         for (const file of files) {
-          new ReportImagesModel(report.id, file.path).save();
+          await filesService.sanitizeImage(file.path);
+          await filesService.recordUpload(file.path, user_id);
+          await new ReportImagesModel(report.id, file.path).save();
         }
       }
 
@@ -52,7 +60,7 @@ class ReportsService {
    * @param {number} id
    * @return {Promise<ReportModel | null>}
    */
-  async getById(id) {
+  async getById(id, requestingUserId = null) {
     if (!id) {
       throw new HttpError({ code: 400 });
     }
@@ -74,7 +82,10 @@ class ReportsService {
 
     if (imagePaths && Array.isArray(imagePaths)) {
       report.images = imagePaths.map((image) => {
-        return filesService.generateFileToken(image.image_path);
+        return filesService.generateFileToken(
+          image.image_path,
+          typeof requestingUserId === "number" ? requestingUserId : null,
+        );
       });
     }
 
@@ -123,7 +134,7 @@ class ReportsService {
     return await ReportModel.findAllBy("user_id", userId, orderByDesc);
   }
 
-  async updateStatus(id, body) {
+  async updateStatus(id, body, actorId = null) {
     const validatedBody = this.UpdateStatusValidation.parse(body);
 
     /** @type {ReportModel|null}*/
@@ -133,11 +144,23 @@ class ReportsService {
     }
 
     report.status = validatedBody.status;
-    return await report.save();
+    const saved = await report.save();
+    await auditService.recordIncidentEvent({
+      actorId: actorId ?? report.user_id,
+      incidentId: report.id,
+      action: "status_update",
+      metadata: { status: validatedBody.status },
+    });
+    return saved;
   }
 
-  async delete(id) {
+  async delete(id, actorId = null) {
     await ReportModel.deleteWhere("id", id);
+    await auditService.recordIncidentEvent({
+      actorId,
+      incidentId: id,
+      action: "delete",
+    });
   }
 }
 

@@ -3,11 +3,28 @@ import * as SecureStore from 'expo-secure-store';
 
 import { getCachedTokens, primeTokenCache } from '@/lib/token-cache';
 
+function resolveBaseUrl(): string {
+  const candidate = process.env.EXPO_PUBLIC_API_URL ?? 'https://localhost:2699';
+
+  try {
+    const parsed = new URL(candidate);
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(parsed.hostname);
+    if (parsed.protocol !== 'https:' && !isLocalhost) {
+      throw new Error('Insecure API URL. HTTPS is required.');
+    }
+    return candidate;
+  } catch (error) {
+    throw new Error(
+      `Invalid EXPO_PUBLIC_API_URL provided: ${candidate}. ${(error as Error).message}`,
+    );
+  }
+}
+
 /**
  * Shared Axios instance configured with Guardian defaults including base URL and token interceptors.
  */
 export const apiService = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:2699',
+  baseURL: resolveBaseUrl(),
 });
 
 apiService.interceptors.request.use(
