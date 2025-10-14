@@ -10,6 +10,7 @@ const securityHeadersMiddleware = require("./middleware/security-headers.middlew
 const notFoundMiddleware = require("./middleware/not-found.middleware");
 const rateLimitMiddleware = require("./middleware/rate-limiting.middleware");
 const RequestLoggingMiddleware = require("./middleware/request-logging.middleware");
+const logger = require("./utils/logger");
 
 const app = express();
 const PORT = process.env.PORT || 2699;
@@ -31,5 +32,5 @@ app.use(notFoundMiddleware);
 app.use(HttpErrorMiddleware);
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info("server_started", { port: PORT });
 });

@@ -4,6 +4,13 @@ class LostItemModel extends BaseModel {
   static table = "lost_items";
   static schema =
     `CREATE TABLE IF NOT EXISTS ${this.table} (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, serial_number TEXT, color TEXT, model TEXT, latitude INTEGER, longitude INTEGER, status TEXT, branch TEXT, user_id INTEGER, created_at DATE DEFAULT current_date)`;
+  static encryptedFields = [
+    "name",
+    "description",
+    "serial_number",
+    "color",
+    "model",
+  ];
 
   name;
   description;

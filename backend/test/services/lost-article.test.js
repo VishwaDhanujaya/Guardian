@@ -6,6 +6,7 @@ const setupBaseModelStubs = require("../testing-utils/baseModelMocks");
 const lostArticleService = require("src/services/lost-articles.service");
 const personalDetailsService = require("src/services/personal-details.service");
 const HttpError = require("src/utils/http-error");
+const auditService = require("src/services/audit.service");
 
 chai.use(sinonChai);
 chai.use(chaiAsPromised);
@@ -18,6 +19,7 @@ describe("LostArticleService", () => {
 
   beforeEach(() => {
     baseModelStubs = setupBaseModelStubs();
+    sinon.stub(auditService, "recordIncidentEvent").resolves();
   });
 
   afterEach(() => {

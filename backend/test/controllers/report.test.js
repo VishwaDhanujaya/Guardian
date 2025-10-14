@@ -87,6 +87,7 @@ describe("ReportsController", () => {
       req.params = {
         id: 1,
       };
+      req.user = 1;
 
       const getReportStub = sinon
         .stub(reportsService, "getById")
@@ -96,7 +97,9 @@ describe("ReportsController", () => {
 
       await reportsController.getById(req, res);
 
-      expect(getReportStub).to.be.calledOnceWithExactly(1).returned(resPromise);
+      expect(getReportStub)
+        .to.be.calledOnceWithExactly(1, 1)
+        .returned(resPromise);
       expect(res.body).to.be.deep.equal(resBody);
     });
 
@@ -107,6 +110,7 @@ describe("ReportsController", () => {
       req.params = {
         id: 1,
       };
+      req.user = 1;
 
       const getReportStub = sinon
         .stub(reportsService, "getById")
@@ -116,7 +120,9 @@ describe("ReportsController", () => {
 
       await reportsController.getById(req, res);
 
-      expect(getReportStub).to.be.calledOnceWithExactly(1).returned(resPromise);
+      expect(getReportStub)
+        .to.be.calledOnceWithExactly(1, 1)
+        .returned(resPromise);
       expect(res.statusCode).to.be.equal(401);
     });
 
@@ -124,6 +130,7 @@ describe("ReportsController", () => {
       req.params = {
         id: 1,
       };
+      req.user = 1;
 
       sinon.stub(reportsService, "getById").rejects();
 
@@ -327,6 +334,7 @@ describe("ReportsController", () => {
         id: 1,
       };
       req.officer = 1;
+      req.user = 8;
       req.body = {
         status: "IN-PROGRESS",
       };
@@ -338,7 +346,7 @@ describe("ReportsController", () => {
       await reportsController.updateStatus(req, res);
 
       expect(updateStatusStub)
-        .to.be.calledOnceWithExactly(1, req.body)
+        .to.be.calledOnceWithExactly(1, req.body, 8)
         .returned(resPromise);
       expect(res.body).to.be.deep.equal(resBody);
     });
@@ -387,12 +395,13 @@ describe("ReportsController", () => {
         id: 1,
       };
       req.officer = 1;
+      req.user = 7;
 
       const deleteReportStub = sinon.stub(reportsService, "delete");
 
       await reportsController.delete(req, res);
 
-      expect(deleteReportStub).to.be.calledOnceWithExactly(1);
+      expect(deleteReportStub).to.be.calledOnceWithExactly(1, 7);
       expect(res.statusCode).to.be.equal(204);
       expect(res.get("Content-Type")).to.be.equal("text/plain");
     });
@@ -414,11 +423,12 @@ describe("ReportsController", () => {
         id: 1,
       };
       req.officer = 1;
+      req.user = 7;
 
       const deleteReportStub = sinon.stub(reportsService, "delete").rejects();
 
       await expect(reportsController.delete(req, res)).to.be.rejected;
-      expect(deleteReportStub).to.be.calledOnceWithExactly(1);
+      expect(deleteReportStub).to.be.calledOnceWithExactly(1, 7);
     });
   });
 });

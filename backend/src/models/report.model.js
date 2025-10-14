@@ -3,6 +3,7 @@ const BaseModel = require("./base.model");
 class ReportModel extends BaseModel {
   static table = "reports";
   static schema = `CREATE TABLE IF NOT EXISTS ${this.table} (id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT, longitude REAL, latitude REAL, user_id INTEGER, status TEXT DEFAULT "PENDING", priority INTEGER, createdAt DATE DEFAULT current_date)`;
+  static encryptedFields = ["description"];
 
   description;
   longitude;

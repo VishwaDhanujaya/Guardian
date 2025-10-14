@@ -3,9 +3,15 @@ const BaseModel = require("./base.model");
 class PersonalDetailsModel extends BaseModel {
   static table = "personal_details";
   static schema = `
-    CREATE TABLE IF NOT EXISTS ${this.table} 
+    CREATE TABLE IF NOT EXISTS ${this.table}
     (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT, last_name TEXT, date_of_birth DATE, contact_number TEXT, report_id INTEGER, lost_article_id INTEGER,  created_at DATE DEFAULT current_date)
   `;
+  static encryptedFields = [
+    "first_name",
+    "last_name",
+    "date_of_birth",
+    "contact_number",
+  ];
 
   first_name;
   last_name;

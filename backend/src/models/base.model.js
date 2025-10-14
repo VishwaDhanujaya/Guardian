@@ -1,4 +1,5 @@
 const { run, get, all } = require("../config/database");
+const { encrypt, decrypt } = require("../utils/encryption");
 
 function validWhereClauseArray(fields, values) {
   const fieldsIsArray = Array.isArray(fields);
@@ -24,6 +25,29 @@ function pruneObject(object, expectedKeys) {
   );
 }
 
+function decryptRecord(record, encryptedFields) {
+  if (!record) {
+    return record;
+  }
+
+  const clone = { ...record };
+  encryptedFields.forEach((field) => {
+    if (clone[field] !== undefined && clone[field] !== null) {
+      clone[field] = decrypt(clone[field]);
+    }
+  });
+  return clone;
+}
+
+function shouldEncryptValue(value, fieldName, encryptedFields) {
+  return (
+    value !== undefined &&
+    value !== null &&
+    value !== -1 &&
+    encryptedFields.includes(fieldName)
+  );
+}
+
 /**
  * @template T
  */
@@ -31,6 +55,7 @@ class BaseModel {
   static table = "";
   static schema = "";
   static initialized = false;
+  static encryptedFields = [];
 
   id = -1;
 
@@ -55,10 +80,21 @@ class BaseModel {
       return this[key] !== -1 && this[key] !== undefined && this[key] !== null;
     });
 
-    const values = validKeys.map((key) => this[key]);
+    const encryptedFields = this.constructor.encryptedFields ?? [];
+    const values = validKeys.map((key) => {
+      const value = this[key];
+      if (shouldEncryptValue(value, key, encryptedFields)) {
+        return encrypt(value);
+      }
+      return value;
+    });
 
-    const insertQuery = `INSERT INTO ${this.constructor.table} (${validKeys.join(", ")}) VALUES (${validKeys.map(() => "?").join(", ")})`;
-    const updateQuery = `UPDATE ${this.constructor.table} SET ${validKeys.map((key) => `${key} = ?`).join(", ")} WHERE id = ?`;
+    const insertQuery = `INSERT INTO ${this.constructor.table} (${validKeys.join(", ")}) VALUES (${validKeys
+      .map(() => "?")
+      .join(", ")})`;
+    const updateQuery = `UPDATE ${this.constructor.table} SET ${validKeys
+      .map((key) => `${key} = ?`)
+      .join(", ")} WHERE id = ?`;
 
     if (isInsert) {
       const result = await run(insertQuery, values);
@@ -67,7 +103,11 @@ class BaseModel {
         [result.lastID],
       );
       const prunedResult = pruneObject(savedResult, keys);
-      Object.assign(this, prunedResult);
+      const decryptedResult = decryptRecord(
+        prunedResult,
+        encryptedFields,
+      );
+      Object.assign(this, decryptedResult);
       return this;
     }
 
@@ -122,7 +162,8 @@ class BaseModel {
     const instance = new this();
     const keys = Object.keys(instance);
     const prunedResult = pruneObject(result, keys);
-    Object.assign(instance, prunedResult);
+    const decrypted = decryptRecord(prunedResult, this.encryptedFields ?? []);
+    Object.assign(instance, decrypted);
     return instance;
   }
 
@@ -146,7 +187,9 @@ class BaseModel {
         return null;
       }
 
-      Object.assign(instance, pruneObject(result, keys));
+      const pruned = pruneObject(result, keys);
+      const decrypted = decryptRecord(pruned, this.encryptedFields ?? []);
+      Object.assign(instance, decrypted);
       return /** @type {T} */ (instance);
     }
 
@@ -157,7 +200,9 @@ class BaseModel {
       return null;
     }
 
-    Object.assign(instance, pruneObject(result, keys));
+    const pruned = pruneObject(result, keys);
+    const decrypted = decryptRecord(pruned, this.encryptedFields ?? []);
+    Object.assign(instance, decrypted);
     return /** @type {T} */ (instance);
   }
 
@@ -166,7 +211,8 @@ class BaseModel {
    * @returns {Promise<T[] | null>}
    */
   static async all({ limit = 100, page = 0, orderBy }) {
-    const query = `SELECT * FROM ${this.table} ${orderBy} LIMIT ${limit * page}, ?`;
+    const orderClause = orderBy ? ` ${orderBy}` : "";
+    const query = `SELECT * FROM ${this.table}${orderClause} LIMIT ${limit * page}, ?`;
     const instanceCore = new this();
     const keys = Object.keys(instanceCore);
     const results = await all(query, limit);
@@ -175,10 +221,12 @@ class BaseModel {
       return null;
     }
 
+    const encryptedFields = this.encryptedFields ?? [];
     const instanceObjects = results.map((result) => {
       const instance = new this();
       const prunedResult = pruneObject(result, keys);
-      return Object.assign(instance, prunedResult);
+      const decrypted = decryptRecord(prunedResult, encryptedFields);
+      return Object.assign(instance, decrypted);
     });
 
     return instanceObjects;
@@ -198,33 +246,38 @@ class BaseModel {
     if (Array.isArray(fields) || Array.isArray(values)) {
       validWhereClauseArray(fields, values);
 
-      query += `${fields.map((field) => `${field} = ?`).join(" AND ")} ${orderBy} LIMIT ?`;
-      const result = await all(query, [values, limit]);
+      const orderClause = orderBy ? ` ${orderBy}` : "";
+      query += `${fields.map((field) => `${field} = ?`).join(" AND ")}${orderClause} LIMIT ?`;
+      const resultSet = await all(query, [values, limit]);
 
-      if (!result) {
+      if (!resultSet) {
         return null;
       }
 
-      const instanceObjects = results.map((result) => {
+      const encryptedFields = this.encryptedFields ?? [];
+      const instanceObjects = resultSet.map((result) => {
         const instance = new this();
         const prunedResult = pruneObject(result, keys);
-        return Object.assign(instance, prunedResult);
+        const decrypted = decryptRecord(prunedResult, encryptedFields);
+        return Object.assign(instance, decrypted);
       });
 
       return instanceObjects;
     }
 
     query += `${fields} = ? LIMIT ?`;
-    const results = await all(query, [values, limit]);
+    const resultsSet = await all(query, [values, limit]);
 
-    if (!results) {
+    if (!resultsSet) {
       return null;
     }
 
-    const instanceObjects = results.map((result) => {
+    const encryptedFields = this.encryptedFields ?? [];
+    const instanceObjects = resultsSet.map((result) => {
       const instance = new this();
       const prunedResult = pruneObject(result, keys);
-      return Object.assign(instance, prunedResult);
+      const decrypted = decryptRecord(prunedResult, encryptedFields);
+      return Object.assign(instance, decrypted);
     });
 
     return instanceObjects;
@@ -265,7 +318,9 @@ class BaseModel {
       return null;
     }
 
-    Object.assign(instance, pruneObject(result, keys));
+    const pruned = pruneObject(result, keys);
+    const decrypted = decryptRecord(pruned, this.encryptedFields ?? []);
+    Object.assign(instance, decrypted);
     return /** @type {T} */ (instance);
   }
 }

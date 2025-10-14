@@ -1,6 +1,7 @@
 const z = require("zod");
 const { v4: uuidv4 } = require("uuid");
 const dialogflow = require("@google-cloud/dialogflow");
+const { scrubPII } = require("../utils/pii-scrubber");
 
 class DialogflowService {
   dialogflowContent = z.object({
@@ -29,10 +30,12 @@ class DialogflowService {
       content.sessionId,
     );
 
+    const sanitizedText = scrubPII(content.text);
+
     const [response] = await this.#client.detectIntent({
       session: sessionPath,
       queryInput: {
-        text: { text: content.text, languageCode: content.languageCode },
+        text: { text: sanitizedText, languageCode: content.languageCode },
       },
     });
 
