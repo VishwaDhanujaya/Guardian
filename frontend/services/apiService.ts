@@ -42,7 +42,13 @@ function isPrivateHostname(hostname: string): boolean {
 }
 
 function resolveBaseUrl(): string {
-  const candidate = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:2699';
+  const candidate = process.env.EXPO_PUBLIC_API_URL;
+
+  if (!candidate) {
+    throw new Error(
+      'EXPO_PUBLIC_API_URL is not configured. Start the project with `npm run dev` or set the variable manually.',
+    );
+  }
 
   try {
     const parsed = new URL(candidate);
