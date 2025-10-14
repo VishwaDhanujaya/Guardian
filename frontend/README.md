@@ -58,17 +58,25 @@ The project ships with an [EAS Build](https://docs.expo.dev/build/introduction/)
 
 ```bash
 cd frontend
+npm install
 npx expo install expo-dev-client # first time only, ensures native deps are synced
 npx eas build -p android --profile preview
 ```
 
-The `preview` profile creates an unsigned APK stored in the Expo dashboard. Download it from the build logs or run with the `--local` flag to build entirely on your machine:
+The `preview` profile creates an unsigned APK stored in the Expo dashboard.
+Download it from the build logs or run with the `--local` flag to build
+entirely on your machine:
 
 ```bash
 npx eas build -p android --profile preview --local
 ```
 
-Before running a production build, update `EXPO_PUBLIC_API_URL` (or the corresponding secret in Expo) to point at your deployed backend.
+If you hit `npm error could not determine executable to run` on Windows,
+update to a recent `npm` release and retry. You can also install the CLI
+globally with `npm install -g eas-cli` and invoke `eas build ...` directly.
+
+Before running a production build, update `EXPO_PUBLIC_API_URL` (or the
+corresponding secret in Expo) to point at your deployed backend.
 
 ## Adding components
 
