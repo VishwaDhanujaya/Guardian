@@ -1,6 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+import { getCachedTokens, primeTokenCache } from '@/lib/token-cache';
+
 /**
  * Shared Axios instance configured with Guardian defaults including base URL and token interceptors.
  */
@@ -10,10 +12,7 @@ export const apiService = axios.create({
 
 apiService.interceptors.request.use(
   async (config) => {
-    const [accessToken, refreshToken] = await Promise.all([
-      SecureStore.getItemAsync('accessToken'),
-      SecureStore.getItemAsync('refreshToken'),
-    ]);
+    const [accessToken, refreshToken] = await getCachedTokens();
 
     config.headers = config.headers ?? {};
 
@@ -48,6 +47,8 @@ apiService.interceptors.response.use(
           const { accessToken, refreshToken: newRefresh } = refreshResponse.data.data;
           await SecureStore.setItemAsync('accessToken', accessToken);
           await SecureStore.setItemAsync('refreshToken', newRefresh);
+          primeTokenCache('accessToken', accessToken);
+          primeTokenCache('refreshToken', newRefresh);
           error.config.headers = error.config.headers ?? {};
           error.config.headers.Authorization = `Bearer ${accessToken}`;
           error.config.headers['refresh-token'] = newRefresh;
@@ -55,6 +56,8 @@ apiService.interceptors.response.use(
         } catch (refreshError) {
           await SecureStore.deleteItemAsync('accessToken');
           await SecureStore.deleteItemAsync('refreshToken');
+          primeTokenCache('accessToken', null);
+          primeTokenCache('refreshToken', null);
         }
       }
     }

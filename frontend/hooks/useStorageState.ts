@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
+import { primeTokenCache } from '@/lib/token-cache';
+
 /**
  * Persists a value in secure storage while exposing loading state so screens can defer rendering
  * until the initial read resolves.
@@ -13,6 +15,7 @@ export function useStorageState(key: string) {
     (async () => {
       const item = await SecureStore.getItemAsync(key);
       setValue(item);
+      primeTokenCache(key, item);
       setIsLoading(false);
     })();
   }, [key]);
@@ -26,6 +29,7 @@ export function useStorageState(key: string) {
         await SecureStore.setItemAsync(key, val);
       }
       setValue(val);
+      primeTokenCache(key, val);
       setIsLoading(false);
     },
     [key],
