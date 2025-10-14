@@ -58,9 +58,14 @@ The project ships with an [EAS Build](https://docs.expo.dev/build/introduction/)
 
 ```bash
 cd frontend
+npm install
 npx expo install expo-dev-client # first time only, ensures native deps are synced
 npx eas build -p android --profile preview
 ```
+
+Running `npm install` first guarantees the local `eas-cli` dependency is
+available. Without it, recent versions of `npm` on Windows can throw `npm
+error could not determine executable to run` when invoking `npx eas`.
 
 The `preview` profile creates an unsigned APK stored in the Expo dashboard. Download it from the build logs or run with the `--local` flag to build entirely on your machine:
 
