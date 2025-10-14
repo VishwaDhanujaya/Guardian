@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const { spawn } = require('child_process');
 
 const DEFAULT_API_PORT = process.env.GUARDIAN_API_PORT ?? '2699';
-const CLI = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const CLI = 'npx';
 
 function isPrivateAddress(address) {
   if (!address) return false;
@@ -64,6 +64,7 @@ function run() {
   const child = spawn(CLI, expoArgs, {
     stdio: 'inherit',
     env: { ...process.env, EXPO_PUBLIC_API_URL: apiUrl },
+    shell: process.platform === 'win32',
   });
 
   child.on('exit', (code) => {
